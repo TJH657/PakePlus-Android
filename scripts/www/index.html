@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>车辆电路研究笔记 v2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { nav: '#1e293b', primary: '#2563eb', success: '#10b981', danger: '#ef4444', bg: '#f5f7fa' }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f5f7fa; }
+        .nav-item { display:flex; align-items:center; padding:10px 14px; color:#94a3b8; border-radius:8px; cursor:pointer; transition:all 0.2s; gap:10px; font-size:14px; }
+        .nav-item:hover { background:#334155; color:#fff; }
+        .nav-item.active { background:#2563eb; color:#fff; }
+        .view-content { display:none; }
+        .view-content.active { display:block; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:40; display:flex; align-items:center; justify-content:center; }
+        .modal-content { background:#fff; border-radius:12px; padding:24px; max-height:90vh; overflow-y:auto; width:90%; max-width:500px; }
+        .toast { position:fixed; top:20px; right:20px; z-index:100; padding:12px 24px; border-radius:8px; color:#fff; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.15); transform:translateX(120%); transition:transform 0.3s ease; }
+        .toast.show { transform:translateX(0); }
+        .floating-preview { position:fixed; z-index:60; background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.3); overflow:hidden; }
+        .camera-container video { width:100%; height:100%; object-fit:contain; background:#000; }
+        ::-webkit-scrollbar { width:5px; height:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+        .msg-user { background:#2563eb; color:#fff; border-radius:16px 16px 4px 16px; padding:12px 18px; max-width:85%; align-self:flex-end; }
+        .msg-ai { background:#f8fafc; color:#1e293b; border-radius:16px 16px 16px 4px; padding:12px 18px; max-width:85%; align-self:flex-start; border:1px solid #e2e8f0; }
+        @media (max-width:767px) {
+            .modal-content { width:100%; height:100%; max-width:100%; max-height:100%; border-radius:0; padding:16px; }
+            .floating-preview { width:90vw !important; height:70vh !important; }
+            input, select, textarea { font-size:16px !important; }
+            button { min-height:44px; display:inline-flex; align-items:center; justify-content:center; }
+            .modal-overlay { align-items:flex-end; }
+            .summary-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
+            #toastContainer { right:auto; left:50%; transform:translateX(-50%); top:12px; }
+            .nav-item span { font-size:15px; }
+            .module-name-click { min-height:44px; }
+            .edit-module, .measure-module, .delete-module {
+                min-width:40px; min-height:40px;
+                display:inline-flex; align-items:center; justify-content:center;
+            }
+            #pinListContainer .grid { grid-template-columns:1fr !important; }
+            #statusCheckboxGroup { flex-wrap:wrap; gap:6px; }
+            #statusCheckboxGroup label { min-height:36px; }
+        }
+        @media (min-width:768px) and (max-width:1365px) {
+            .floating-preview { width:80vw !important; height:65vh !important; }
+        }
+        @media (min-width:1366px) {
+            .floating-preview { width:700px !important; height:500px !important; }
+        }
+        .table-input { width:100%; padding:5px 8px; border:1px solid #e2e8f0; border-radius:5px; font-size:13px; outline:none; background:#fff; }
+        .table-input:focus { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,0.12); }
+        .status-select { min-width:85px; width:auto; }
+        .file-card { cursor:pointer; transition:transform 0.2s,box-shadow 0.2s; }
+        .file-card:hover { transform:translateY(-3px); box-shadow:0 8px 16px rgba(0,0,0,0.08); }
+        .msg-ai pre { background:#1e293b; color:#e2e8f0; padding:12px; border-radius:8px; overflow-x:auto; font-size:12px; margin:8px 0; }
+        .msg-ai code { font-family:'JetBrains Mono','Fira Code',monospace; font-size:12px; }
+        .msg-ai p { margin:6px 0; }
+        .msg-ai ul,.msg-ai ol { padding-left:20px; margin:6px 0; }
+        .msg-ai h3,.msg-ai h4 { margin:10px 0 4px; font-weight:600; }
+        .msg-ai table { border-collapse:collapse; width:100%; margin:8px 0; font-size:12px; }
+        .msg-ai th,.msg-ai td { border:1px solid #e2e8f0; padding:6px 10px; text-align:left; }
+        .msg-ai th { background:#f1f5f9; font-weight:600; }
+        .msg-user code { color:#bfdbfe; }
+        input[type="file"] { display:none; }
+        .badge-dtc { background:#fef2f2; color:#dc2626; font-size:11px; padding:2px 8px; border-radius:4px; font-weight:500; }
+        .timeline-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+        .activity-item { transition:background 0.2s; }
+        .activity-item:hover { background:#f8fafc; }
+        .chip { display:inline-flex; align-items:center; gap:4px; padding:4px 12px; border-radius:16px; font-size:12px; cursor:pointer; border:1px solid #e2e8f0; transition:all 0.2s; }
+        .chip:hover { background:#2563eb; color:#fff; border-color:#2563eb; }
+        .search-highlight { background:#fef08a; padding:0 2px; border-radius:2px; }
+        .slide-enter { animation:slideIn 0.25s ease-out; }
+        @keyframes slideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        .pulse-dot { width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block; animation:pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        @keyframes pulse-ring {
+            0%,100% { box-shadow:0 0 0 0 rgba(239,68,68,0.5); opacity:1; }
+            50% { box-shadow:0 0 0 8px rgba(239,68,68,0); opacity:0.4; }
+        }
+        #micBtn.recording {
+            background:#fef2f2;
+            color:#ef4444;
+            animation:pulse-ring 1.2s infinite;
+        }
+        @media (max-width:767px) {
+            .meas-type-group { grid-template-columns:repeat(1,minmax(0,1fr)) !important; }
+        }
+        @media (min-width:768px) {
+            .meas-type-group { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+        }
+        @media (max-width:767px) {
+            #uploadZone button, #cameraCaptureZone button, #cameraZone button { min-height:44px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toastContainer" class="fixed top-4 right-4 z-[100] space-y-2"></div>
+
+<!-- 移动端汉堡按钮 -->
+<button id="menuToggle" class="lg:hidden fixed top-3 left-3 z-50 w-10 h-10 bg-nav text-white rounded-lg flex items-center justify-center shadow-lg">
+    <i class="fas fa-bars text-lg"></i>
+</button>
+
+<!-- 导航遮罩 -->
+<div id="navOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
+
+<!-- ==================== 左侧导航栏 ==================== -->
+<nav id="sidebar" class="fixed top-0 left-0 h-full w-[220px] bg-nav z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 flex flex-col">
+    <div class="p-5 border-b border-gray-700/50">
+        <h1 class="text-white font-bold flex items-center gap-2 text-base">
+            <i class="fas fa-car-side text-primary"></i>
+            <span>车辆电路研究</span>
+        </h1>
+    </div>
+    <ul class="mt-3 space-y-1 px-3 flex-1">
+        <li data-view="dashboard"><a class="nav-item active"><i class="fas fa-chart-pie w-5 text-center"></i><span>系统概览</span></a></li>
+        <li data-view="data-entry"><a class="nav-item"><i class="fas fa-microchip w-5 text-center"></i><span>电路图</span></a></li>
+        <li data-view="ai-assistant"><a class="nav-item"><i class="fas fa-robot w-5 text-center"></i><span>AI 助手</span></a></li>
+        <li data-view="pdf-viewer"><a class="nav-item"><i class="fas fa-file-pdf w-5 text-center"></i><span>PDF 电路图</span></a></li>
+        <li data-view="settings"><a class="nav-item"><i class="fas fa-cog w-5 text-center"></i><span>设置</span></a></li>
+    </ul>
+    <!-- 导航底部状态面板 -->
+    <div class="p-3 border-t border-gray-700/50 space-y-2">
+        <div id="navApiStatus" class="flex items-center gap-2 text-xs text-gray-400">
+            <span class="w-2 h-2 rounded-full inline-block" id="navApiDot"></span>
+            <span id="navApiText" class="truncate">AI 未连接</span>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-gray-500">
+            <i class="fas fa-database text-[10px]"></i>
+            <span id="navStorageText">0 KB</span>
+        </div>
+        <div class="text-[10px] text-gray-600">v2.0 · 车辆电路研究</div>
+    </div>
+</nav>
+
+<!-- ==================== 主内容区 ==================== -->
+<div id="mainContent" class="lg:ml-[220px] min-h-screen transition-all duration-300">
+
+    <!-- ========== 系统概览 ========== -->
+    <main id="view-dashboard" class="view-content active p-4 md:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+            <div>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800">系统概览</h2>
+                <p class="text-sm text-gray-400 mt-0.5">数据中心运行状态一览</p>
+            </div>
+            <button id="exportAllBtn" class="text-sm bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2"><i class="fas fa-download"></i>备份数据</button>
+        </div>
+
+        <!-- 核心指标卡 2x3 -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm p-3.5 md:p-4 border border-gray-100">
+                <div class="flex flex-col items-center text-center">
+                    <div class="p-2 bg-blue-50 rounded-full mb-2"><i class="fas fa-microchip text-lg text-primary"></i></div>
+                    <p id="statModules" class="text-xl md:text-2xl font-bold text-gray-800">0</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">电路图</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-3.5 md:p-4 border border-gray-100">
+                <div class="flex flex-col items-center text-center">
+                    <div class="p-2 bg-green-50 rounded-full mb-2"><i class="fas fa-table text-lg text-success"></i></div>
+                    <p id="statTotalMeas" class="text-xl md:text-2xl font-bold text-gray-800">0</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">测量数据</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-3.5 md:p-4 border border-gray-100">
+                <div class="flex flex-col items-center text-center">
+                    <div class="p-2 bg-sky-50 rounded-full mb-2"><i class="fas fa-layer-group text-lg text-sky-500"></i></div>
+                    <p id="statDtcs" class="text-xl md:text-2xl font-bold text-gray-800">0</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">总记录数</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-3.5 md:p-4 border border-gray-100">
+                <div class="flex flex-col items-center text-center">
+                    <div class="p-2 bg-purple-50 rounded-full mb-2"><i class="fas fa-comments text-lg text-purple-500"></i></div>
+                    <p id="statChats" class="text-xl md:text-2xl font-bold text-gray-800">0</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">AI 对话</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-3.5 md:p-4 border border-gray-100">
+                <div class="flex flex-col items-center text-center">
+                    <div class="p-2 bg-red-50 rounded-full mb-2"><i class="fas fa-file-pdf text-lg text-red-500"></i></div>
+                    <p id="statCircuits" class="text-xl md:text-2xl font-bold text-gray-800">0</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">电路图</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-3.5 md:p-4 border border-gray-100">
+                <div class="flex flex-col items-center text-center">
+                    <div class="p-2 bg-sky-50 rounded-full mb-2"><i class="fas fa-hdd text-lg text-sky-500"></i></div>
+                    <p id="storageUsage" class="text-xl md:text-2xl font-bold text-gray-800">0 B</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">存储用量</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统状态 + 最近活动 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 mb-6">
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2"><i class="fas fa-list-alt text-primary"></i>系统运行状态</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg"><div class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center"><i class="fas fa-check text-success text-sm"></i></div><div><p class="text-xs font-medium text-gray-700">数据存储</p><p class="text-[11px] text-gray-400">localStorage · <span id="storageUsage2">0 KB</span></p></div></div>
+                    <div class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg"><div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><i id="aiStatusIcon" class="fas text-sm"></i></div><div><p class="text-xs font-medium text-gray-700">AI 服务</p><p class="text-[11px]"><span id="aiStatus" class="text-gray-400">未配置</span></p></div></div>
+                    <div class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg"><div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center"><i class="fas fa-clock text-purple-500 text-sm"></i></div><div><p class="text-xs font-medium text-gray-700">最后操作</p><p class="text-[11px] text-gray-400"><span id="lastActivity">无记录</span></p></div></div>
+                    <div class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg"><div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center"><i class="fas fa-layer-group text-amber-500 text-sm"></i></div><div><p class="text-xs font-medium text-gray-700">数据版本</p><p class="text-[11px] text-gray-400">v2.0 · 本地存储</p></div></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><i class="fas fa-history text-primary"></i>最近活动 <span class="text-[10px] text-gray-400 font-normal" id="activityCount">(0)</span></h3>
+                <div id="activityTimeline" class="space-y-2 max-h-[260px] overflow-y-auto"><p class="text-gray-400 text-xs">暂无活动记录</p></div>
+            </div>
+        </div>
+
+        <!-- 快速操作 + 最近模块 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><i class="fas fa-bolt text-amber-500"></i>快速操作</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="switchView('data-entry')" class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-blue-50 hover:text-primary transition text-sm text-gray-600"><i class="fas fa-plus-circle text-primary"></i>新建电路图</button>
+                    <button onclick="switchView('ai-assistant')" class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition text-sm text-gray-600"><i class="fas fa-robot text-purple-500"></i>AI 电路分析</button>
+                    <button onclick="switchView('pdf-viewer')" class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-green-50 hover:text-green-600 transition text-sm text-gray-600"><i class="fas fa-upload text-success"></i>上传电路图</button>
+                    <button id="importDataBtn" class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition text-sm text-gray-600"><i class="fas fa-folder-open text-amber-500"></i>导入备份数据</button>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><i class="fas fa-cube text-primary"></i>最近电路图</h3>
+                <div id="recentModules" class="space-y-2 max-h-[180px] overflow-y-auto"><p class="text-gray-400 text-xs">暂无电路图</p></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========== 电路图 ========== -->
+    <main id="view-data-entry" class="view-content p-4 md:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <div>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800">电路图</h2>
+                <p class="text-sm text-gray-400 mt-0.5">管理各电路图及其针脚测量数据</p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <button id="addModuleBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 text-sm"><i class="fas fa-plus"></i>新建模块</button>
+            </div>
+        </div>
+        <!-- 数据摘要栏 -->
+        <div id="dataEntrySummary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div class="bg-white rounded-lg shadow-sm p-3 border border-gray-100 flex items-center gap-3"><div class="p-1.5 bg-blue-50 rounded-lg"><i class="fas fa-microchip text-primary text-sm"></i></div><div><p class="text-xs text-gray-400">总电路图</p><p id="summaryModules" class="text-sm font-bold text-gray-700">0</p></div></div>
+            <div class="bg-white rounded-lg shadow-sm p-3 border border-gray-100 flex items-center gap-3"><div class="p-1.5 bg-green-50 rounded-lg"><i class="fas fa-table text-success text-sm"></i></div><div><p class="text-xs text-gray-400">测量数据</p><p id="summaryMeas" class="text-sm font-bold text-gray-700">0</p></div></div>
+            <div class="bg-white rounded-lg shadow-sm p-3 border border-gray-100 flex items-center gap-3"><div class="p-1.5 bg-amber-50 rounded-lg"><i class="fas fa-cube text-amber-500 text-sm"></i></div><div><p class="text-xs text-gray-400">总电路图</p><p id="summaryDtcs" class="text-sm font-bold text-gray-700">0</p></div></div>
+            <div class="bg-white rounded-lg shadow-sm p-3 border border-gray-100 flex items-center gap-3"><div class="p-1.5 bg-purple-50 rounded-lg"><i class="fas fa-file-alt text-purple-500 text-sm"></i></div><div><p class="text-xs text-gray-400">已生成报告</p><p id="summaryReports" class="text-sm font-bold text-gray-700">0</p></div></div>
+        </div>
+        <div class="relative mb-4">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input id="moduleSearchInput" type="text" class="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="搜索模块名称、电路名称或功能描述...">
+        </div>
+        <div id="moduleList" class="space-y-3"></div>
+        <div id="emptyModules" class="text-center py-16 text-gray-400 hidden"><i class="fas fa-inbox text-5xl mb-3 block"></i><p>暂无电路图，点击上方按钮新建</p></div>
+    </main>
+
+    <!-- ========== AI 助手 ========== -->
+    <main id="view-ai-assistant" class="view-content p-4 md:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+            <div>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800">AI 助手</h2>
+                <p class="text-sm text-gray-400 mt-0.5 flex items-center gap-2">
+                    <span id="aiModelBadge" class="text-[11px] bg-gray-100 px-2 py-0.5 rounded">模型未配置</span>
+                    <span id="aiChatStats" class="text-[11px] text-gray-400">0 条对话</span>
+                </p>
+            </div>
+            <div class="flex gap-2">
+                <button id="clearChatBtn" class="text-sm px-3 py-1.5 text-gray-500 hover:text-danger hover:bg-red-50 rounded-lg transition flex items-center gap-1"><i class="fas fa-trash-alt"></i><span class="hidden sm:inline">清空对话</span></button>
+            </div>
+        </div>
+        <div id="presetTemplates" class="flex gap-2 mb-3 overflow-x-auto pb-1"></div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col" style="height:calc(100vh - 260px);min-height:400px;">
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+            <div id="chatEmpty" class="flex-1 flex flex-col items-center justify-center text-gray-400"><i class="fas fa-robot text-5xl mb-3 text-gray-300"></i><p class="text-sm">描述某个电路模块或针脚，获取原理分析和标准值参考</p></div>
+            <div class="border-t p-3 md:p-4">
+                <div id="quickMatchModules" class="hidden flex gap-2 mb-2 overflow-x-auto pb-1"></div>
+                <div class="flex gap-2 items-end">
+                    <button id="micBtn" class="flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-danger transition flex items-center justify-center" title="长按录音"><i class="fas fa-microphone text-lg"></i></button>
+                    <textarea id="chatInput" rows="2" class="flex-1 border border-gray-200 rounded-xl p-3 resize-none text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="如：ECM 的 BATT 针脚在 OFF 档时电压是多少？(Ctrl+Enter 发送)"></textarea>
+                    <button id="sendBtn" class="bg-primary text-white px-5 py-3 rounded-xl hover:bg-blue-700 transition flex items-center gap-2 text-sm whitespace-nowrap flex-shrink-0"><i class="fas fa-paper-plane"></i><span class="hidden sm:inline">发送</span></button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========== PDF 电路图 ========== -->
+    <main id="view-pdf-viewer" class="view-content p-4 md:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+            <div>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800">PDF 电路图</h2>
+                <p class="text-sm text-gray-400 mt-0.5">上传、查看和管理电路图文档</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-400">总大小: <span id="fileTotalSize">0 MB</span></span>
+                <span class="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-500" id="fileCountBadge">共 0 个文件</span>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm p-6 md:p-8 text-center border-2 border-dashed border-gray-200 hover:border-primary/50 transition cursor-pointer" id="uploadZone">
+                <i class="fas fa-cloud-upload-alt text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500 mb-1">上传 PDF 或图片</p>
+                <p class="text-xs text-gray-400 mb-3">支持 PDF / PNG / JPG（可从微信选择）</p>
+                <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" multiple>
+                <button id="uploadBtn" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition text-sm inline-flex items-center gap-2"><i class="fas fa-folder-open"></i>选择文件</button>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-6 md:p-8 text-center border-2 border-dashed border-gray-200 hover:border-primary/50 transition cursor-pointer" id="cameraCaptureZone">
+                <i class="fas fa-camera text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500 mb-1">拍照上传</p>
+                <p class="text-xs text-gray-400 mb-3">使用设备摄像头拍摄电路图</p>
+                <input type="file" id="cameraFileInput" accept="image/*" capture="environment">
+                <button id="cameraCaptureBtn" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition text-sm inline-flex items-center gap-2"><i class="fas fa-camera-retro"></i>拍照</button>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-6 md:p-8 text-center border-2 border-dashed border-gray-200 hover:border-primary/50 transition cursor-pointer" id="cameraZone">
+                <i class="fas fa-video text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500 mb-1">实时拍摄</p>
+                <p class="text-xs text-gray-400 mb-3">使用实时摄像头预览拍摄</p>
+                <button id="cameraBtn" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition text-sm inline-flex items-center gap-2"><i class="fas fa-camera-retro"></i>打开摄像头</button>
+            </div>
+        </div>
+        <div id="fileList" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+        <div id="emptyFiles" class="text-center py-12 text-gray-400"><i class="fas fa-folder-open text-4xl mb-2 block"></i><p class="text-sm">暂无上传文件</p></div>
+    </main>
+
+    <!-- ========== 设置 ========== -->
+    <main id="view-settings" class="view-content p-4 md:p-6">
+        <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-6">设置</h2>
+        <div class="space-y-5">
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2"><i class="fas fa-sliders-h text-primary"></i>基础设置</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div><p class="text-sm font-medium text-gray-700">数据备份</p><p class="text-xs text-gray-400">将所有数据导出为 JSON 文件</p></div>
+                        <button id="exportDataBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">导出备份</button>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div><p class="text-sm font-medium text-gray-700">数据恢复</p><p class="text-xs text-gray-400">从 JSON 备份文件恢复数据</p></div>
+                        <input type="file" id="importFileInput" accept=".json">
+                        <button id="importDataSettingsBtn" class="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition text-sm">导入恢复</button>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div><p class="text-sm font-medium text-gray-700">清空所有数据</p><p class="text-xs text-gray-400">删除所有本地数据，不可恢复</p></div>
+                        <button id="clearDataBtn" class="bg-danger text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm">清空数据</button>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2"><i class="fas fa-brain text-primary"></i>AI 设置</h3>
+                <div class="space-y-4">
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1.5">选择模型</label><select id="aiModel" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2"><option value="deepseek">DeepSeek</option><option value="doubao">豆包 (Doubao)</option></select></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1.5">API 地址</label><input id="apiUrl" type="url" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2" placeholder="https://api.deepseek.com/v1/chat/completions"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1.5">API Key</label><div class="relative"><input id="apiKey" type="password" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 pr-10" placeholder="sk-..."><button id="toggleKeyBtn" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><i class="fas fa-eye"></i></button></div></div>
+                    <div class="flex items-center gap-3">
+                        <button id="testApiBtn" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition text-sm inline-flex items-center gap-2"><i class="fas fa-plug"></i>测试连接</button>
+                        <span id="testResult" class="text-sm"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- ==================== 模块编辑弹窗 ==================== -->
+<div id="moduleModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-overlay" id="moduleModalOverlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold" id="moduleModalTitle">新建电路图</h3><button id="moduleModalClose" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button></div>
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">模块名称 <span class="text-danger">*</span></label><input id="moduleNameInput" type="text" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary" placeholder="如：发动机控制模块 (ECM)"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">车型分类 <span class="text-danger">*</span></label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="vehicleType" value="fuel" checked class="w-4 h-4 text-primary"><span class="text-sm">传统油车</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="vehicleType" value="nev" class="w-4 h-4 text-primary"><span class="text-sm">新能源汽车</span></label>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-1" id="vehicleTypeHint">传统油车状态：OFF / ON / 启动</p>
+                </div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">电路名称</label><input id="circuitNameInput" type="text" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary" placeholder="如：主继电器电路 / CAN 总线电路"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">针脚定义 / 功能描述</label><textarea id="faultDescInput" rows="2" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary" placeholder="描述该模块的针脚功能、正常值范围、测量注意事项..."></textarea></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">关联电路图</label><select id="moduleCircuitRef" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary"><option value="">- 无关联 -</option></select><p class="text-[11px] text-gray-400 mt-1">选择已上传的电路图作为参考</p></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6"><button id="moduleModalCancel" class="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button><button id="moduleModalSave" class="bg-success text-white px-5 py-2.5 text-sm rounded-lg hover:bg-green-600 transition">保存</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 测量数据弹窗 ==================== -->
+<div id="measurementModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-overlay" id="measurementModalOverlay">
+        <div class="modal-content max-w-4xl !max-w-4xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold" id="measurementModalTitle">测量数据 - <span id="measModuleName"></span></h3>
+                <button id="measurementModalClose" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <!-- 针脚列表 -->
+            <div id="pinListContainer" class="space-y-3 max-h-[55vh] overflow-y-auto">
+                <div class="text-center text-gray-400 py-8 text-sm" id="pinListEmpty">暂无针脚数据，点击下方按钮添加</div>
+            </div>
+            <!-- 操作按钮 -->
+            <div class="flex justify-between items-center mt-4">
+                <button id="addPinBtn" class="text-primary hover:text-blue-700 text-sm flex items-center gap-1"><i class="fas fa-plus-circle"></i>添加针脚</button>
+                <div class="flex gap-2">
+                    <button id="aiArchiveBtn" class="px-4 py-2.5 text-sm rounded-lg transition flex items-center gap-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"><i class="fas fa-brain"></i><span class="hidden sm:inline">AI 归档</span></button>
+                    <button id="measurementCancel" class="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 针脚编辑弹窗 ==================== -->
+<div id="pinEditModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-overlay" id="pinEditModalOverlay">
+        <div class="modal-content max-w-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold" id="pinEditTitle">编辑针脚</h3>
+                <button id="pinEditClose" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">针脚名称 <span class="text-danger">*</span></label><input id="pinNameInput" type="text" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary" placeholder="如：Pin 1 / BATT / GND"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">针脚描述</label><input id="pinDescInput" type="text" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary" placeholder="如：主供电针脚 / 搭铁"></div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">适用状态（可多选）</label>
+                    <div id="statusCheckboxGroup" class="flex gap-4"></div>
+                </div>
+                <div id="statusDataContainer" class="space-y-3"></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="pinEditCancel" class="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+                <button id="pinEditDelete" class="px-5 py-2.5 text-sm text-danger hover:bg-red-50 rounded-lg transition hidden"><i class="fas fa-trash-alt"></i> 删除针脚</button>
+                <button id="pinEditSave" class="bg-success text-white px-5 py-2.5 text-sm rounded-lg hover:bg-green-600 transition">保存针脚</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 确认弹窗 ==================== -->
+<div id="confirmModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-overlay" id="confirmModalOverlay">
+        <div class="modal-content max-w-sm"><h3 class="text-lg font-semibold text-gray-800 mb-2" id="confirmTitle">确认</h3><p class="text-gray-600 text-sm mb-6" id="confirmMessage"></p><div class="flex justify-end gap-3"><button id="confirmCancel" class="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button><button id="confirmOk" class="bg-danger text-white px-5 py-2.5 text-sm rounded-lg hover:bg-red-600 transition">确认</button></div></div>
+    </div>
+</div>
+
+<!-- ==================== 悬浮预览 ==================== -->
+<div id="pdfPreviewModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" id="pdfPreviewOverlay"></div>
+    <div id="pdfPreviewContent" class="absolute bg-white rounded-xl shadow-2xl overflow-hidden" style="width:700px;height:500px;top:50%;left:50%;transform:translate(-50%,-50%);">
+        <div id="pdfPreviewHeader" class="flex justify-between items-center px-4 py-2.5 bg-gray-50 cursor-move border-b select-none">
+            <div class="flex items-center gap-2 min-w-0"><i class="fas fa-file text-primary"></i><span class="font-semibold text-sm truncate max-w-[200px]" id="pdfPreviewTitle">预览</span></div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+                <button id="pdfPrevPage" class="text-gray-500 hover:text-gray-700 p-1 text-xs" title="上一页"><i class="fas fa-chevron-left"></i></button>
+                <span id="pdfPageInfo" class="text-xs text-gray-500 mx-1">1/1</span>
+                <button id="pdfNextPage" class="text-gray-500 hover:text-gray-700 p-1 text-xs" title="下一页"><i class="fas fa-chevron-right"></i></button>
+                <span class="text-gray-300 mx-1">|</span>
+                <button id="pdfZoomIn" class="text-gray-500 hover:text-gray-700 p-1" title="放大"><i class="fas fa-search-plus text-xs"></i></button>
+                <button id="pdfZoomOut" class="text-gray-500 hover:text-gray-700 p-1" title="缩小"><i class="fas fa-search-minus text-xs"></i></button>
+                <button id="pdfZoomReset" class="text-gray-500 hover:text-gray-700 p-1" title="重置缩放"><i class="fas fa-expand text-xs"></i></button>
+                <span class="text-gray-300 mx-1">|</span>
+                <button id="pdfDeleteFile" class="text-gray-500 hover:text-danger p-1" title="删除文件"><i class="fas fa-trash-alt text-xs"></i></button>
+                <button id="pdfPreviewClose" class="text-gray-500 hover:text-danger p-1 ml-1" title="关闭"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <div id="pdfPreviewBody" class="overflow-auto bg-gray-100 flex items-start justify-center" style="height:calc(100% - 47px);"></div>
+    </div>
+</div>
+
+<!-- ==================== 摄像头弹窗 ==================== -->
+<div id="cameraModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-overlay" id="cameraModalOverlay">
+        <div class="modal-content max-w-2xl p-0 overflow-hidden">
+            <div class="flex justify-between items-center p-3 bg-gray-50 border-b"><h3 class="font-semibold text-sm">拍照上传</h3><button id="cameraModalClose" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button></div>
+            <div class="camera-container bg-black" style="min-height:300px;"><video id="cameraPreview" autoplay playsinline class="w-full"></video><img id="capturePreview" class="w-full hidden" alt="预览"></div>
+            <div class="flex justify-center gap-4 p-3 bg-gray-50">
+                <button id="captureBtn" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition text-sm flex items-center gap-2"><i class="fas fa-camera"></i>拍照</button>
+                <button id="recaptureBtn" class="px-5 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition hidden">重新拍摄</button>
+                <button id="confirmPhotoBtn" class="bg-success text-white px-5 py-2 rounded-lg hover:bg-green-600 transition text-sm hidden"><i class="fas fa-check"></i>确认使用</button>
+                <button id="cameraCancelBtn" class="px-5 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">关闭</button>
+            </div>
+            <canvas id="captureCanvas" class="hidden"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// 常量 & 工具
+// ============================================================
+const LS_KEYS = { MODULES:'faultModules', AI_CFG:'aiConfig', CHAT:'aiChatHistory', FILES:'circuitFiles', ACTIVITY:'recentActivity' };
+const SYSTEM_PROMPT = '你是一名资深的汽车电路记录专家，专注于帮助用户记录和分析车辆各电气模块的正常值参考数据。当用户描述某个电路模块或针脚现象时，请从电路原理角度分析：1) 该电路的正常工作电压/电阻标准值 2) 不同状态下的信号变化规律 3) 波形特征 4) 常见测量点和注意事项。回答要专业、清晰、有条理，适当使用表格和列表组织信息。';
+const PRESET_TEMPLATES = [
+    { label:'发动机ECM针脚', text:'请帮我分析发动机控制模块(ECM)的主继电器供电电路，在OFF档、ON档和启动状态下，ECM的BATT、IG1、MREL等主要供电针脚的电压变化规律和正常值范围。' },
+    { label:'CAN总线信号', text:'请分析车辆CAN总线电路的工作原理，包括CAN H和CAN L的电压范围、波形特征，以及在车辆不同状态下的信号变化规律，如何用万用表或示波器检测。' },
+    { label:'氧传感器电路', text:'请分析氧传感器加热器电路的针脚定义，宽域氧传感器的6根针脚分别是什么功能？不同工况下信号电压范围和波形特征是什么？' },
+    { label:'ABS轮速传感器', text:'请分析ABS轮速传感器的电路原理，两线式/三线式霍尔传感器的针脚定义，车轮转动时的信号电压和波形特征，如何用万用表判断好坏。' },
+    { label:'LIN总线通信', text:'请分析LIN总线的工作原理，LIN总线的电压范围、波形特征，与CAN总线的区别，以及在车身控制模块中的应用场景和测量方法。' }
+];
+
+function showToast(msg, type='success') {
+    const c = document.getElementById('toastContainer');
+    const colors={success:'bg-success',error:'bg-danger',info:'bg-primary',warning:'bg-orange-500'};
+    const icons={success:'fa-check-circle',error:'fa-exclamation-circle',info:'fa-info-circle',warning:'fa-exclamation-triangle'};
+    const t=document.createElement('div');
+    t.className=`${colors[type]||colors.info} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm transform translate-x-full transition-all duration-300`;
+    t.innerHTML=`<i class="fas ${icons[type]||icons.info}"></i>${msg}`;
+    c.appendChild(t);
+    requestAnimationFrame(()=>t.style.transform='translateX(0)');
+    setTimeout(()=>{ t.style.transform='translateX(120%)'; setTimeout(()=>t.remove(),300); },3500);
+}
+
+function showToastWithAction(msg, onClick){
+    const c=document.getElementById('toastContainer');
+    const t=document.createElement('div');
+    t.className='bg-purple-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm cursor-pointer hover:bg-purple-700 transition transform translate-x-full duration-300';
+    t.innerHTML=`<i class="fas fa-brain"></i>${msg}`;
+    t.addEventListener('click',()=>{
+        t.style.transform='translateX(120%)';
+        setTimeout(()=>t.remove(),300);
+        if(onClick)onClick();
+    });
+    c.appendChild(t);
+    requestAnimationFrame(()=>t.style.transform='translateX(0)');
+    setTimeout(()=>{
+        t.style.transform='translateX(120%)';
+        setTimeout(()=>t.remove(),300);
+    },5000);
+}
+
+function showConfirm(title,msg){return new Promise(resolve=>{
+    const m=document.getElementById('confirmModal');
+    document.getElementById('confirmTitle').textContent=title;
+    document.getElementById('confirmMessage').textContent=msg;
+    m.classList.remove('hidden');
+    const clean=()=>m.classList.add('hidden');
+    document.getElementById('confirmOk').onclick=()=>{clean();resolve(true)};
+    document.getElementById('confirmCancel').onclick=()=>{clean();resolve(false)};
+    document.getElementById('confirmModalOverlay').onclick=()=>{clean();resolve(false)};
+})}
+
+function genId(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
+function fmtDate(ts){const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
+function fmtRelative(ts){const diff=Date.now()-ts; if(diff<60000)return '刚刚'; if(diff<3600000)return Math.floor(diff/60000)+'分钟前'; if(diff<86400000)return Math.floor(diff/3600000)+'小时前'; return fmtDate(ts); }
+function escHtml(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+
+// ============================================================
+// 数据管理
+// ============================================================
+function getModules(){
+    let modules=JSON.parse(localStorage.getItem(LS_KEYS.MODULES)||'[]');
+    modules=modules.map(m=>migrateModuleData(m));
+    return modules;
+}
+function setModules(d){localStorage.setItem(LS_KEYS.MODULES,JSON.stringify(d)); logActivity('更新模块数据')}
+function migrateStatusEntry(statusEntry){
+    if(statusEntry.measurementTypes&&statusEntry.measurements)return statusEntry;
+    const measurementTypes=[];
+    const measurements=[];
+    const typeMap={voltage:'电压',resistance:'电阻',can:'CAN波形',lin:'LIN波形'};
+    const unitMap={voltage:'V',resistance:'Ω',can:'',lin:''};
+    if(statusEntry.voltage&&statusEntry.voltage.trim()){
+        measurementTypes.push('voltage');
+        measurements.push({type:'voltage',label:'电压',value:statusEntry.voltage,unit:'V'});
+    }
+    if(statusEntry.resistance&&statusEntry.resistance.trim()){
+        measurementTypes.push('resistance');
+        measurements.push({type:'resistance',label:'电阻',value:statusEntry.resistance,unit:'Ω',pinPair:''});
+    }
+    if(statusEntry.can&&statusEntry.can.trim()){
+        measurementTypes.push('canWaveform');
+        measurements.push({type:'canWaveform',label:'CAN波形',value:statusEntry.can,pinPair:''});
+    }
+    if(statusEntry.lin&&statusEntry.lin.trim()){
+        measurementTypes.push('linWaveform');
+        measurements.push({type:'linWaveform',label:'LIN波形',value:statusEntry.lin,pinPair:''});
+    }
+    return {
+        status:statusEntry.status,
+        measurementTypes,
+        measurements,
+        abnormalVal:statusEntry.abnormalVal||'',
+        abnormalDesc:statusEntry.abnormalDesc||'',
+        circuitFileId:statusEntry.circuitFileId||''
+    };
+}
+function migrateModuleData(m){
+    if(!m.vehicleType){
+        if(m.measurements&&m.measurements.length){
+            const pinsMap={};
+            m.measurements.forEach(r=>{
+                const pinName=r.pin||'未命名';
+                if(!pinsMap[pinName])pinsMap[pinName]={id:genId(),name:pinName,description:'',statuses:[]};
+                const existingStatus=pinsMap[pinName].statuses.find(s=>s.status===r.status);
+                if(!existingStatus){
+                    const rawStatus={
+                        status:r.status,
+                        voltage:r.voltage||'',
+                        resistance:r.resistance||'',
+                        can:r.can||'',
+                        lin:r.lin||'',
+                        abnormalVal:r.abnormalVal||'',
+                        abnormalDesc:r.abnormalDesc||'',
+                        circuitFileId:r.circuitFileId||''
+                    };
+                    pinsMap[pinName].statuses.push(migrateStatusEntry(rawStatus));
+                }
+            });
+            m.pins=Object.values(pinsMap);
+        }else{
+            m.pins=[];
+        }
+        m.vehicleType='fuel';
+        m._migrated=true;
+        delete m.measurements;
+    }
+    if(m.pins){
+        m.pins.forEach(p=>{
+            if(p.statuses){
+                p.statuses=p.statuses.map(s=>migrateStatusEntry(s));
+            }
+        });
+    }
+    return m;
+}
+function getAIConfig(){return JSON.parse(localStorage.getItem(LS_KEYS.AI_CFG)||JSON.stringify({model:'deepseek',url:'https://api.deepseek.com/v1/chat/completions',key:''}))}
+function setAIConfig(c){localStorage.setItem(LS_KEYS.AI_CFG,JSON.stringify(c)); logActivity('更新 AI 配置')}
+function getChatHistory(){return JSON.parse(localStorage.getItem(LS_KEYS.CHAT)||'[]')}
+function setChatHistory(d){localStorage.setItem(LS_KEYS.CHAT,JSON.stringify(d))}
+function getFiles(){return JSON.parse(localStorage.getItem(LS_KEYS.FILES)||'[]')}
+function setFiles(d){localStorage.setItem(LS_KEYS.FILES,JSON.stringify(d)); logActivity('更新文件库')}
+function getActivities(){return JSON.parse(localStorage.getItem(LS_KEYS.ACTIVITY)||'[]')}
+function setActivities(d){localStorage.setItem(LS_KEYS.ACTIVITY,JSON.stringify(d.slice(0,50)))}
+function logActivity(text){const a=getActivities();a.unshift({text,timestamp:Date.now()});setActivities(a)}
+function getStorageSize(){let t=0;for(let k in localStorage)if(localStorage.hasOwnProperty(k))t+=localStorage[k].length*2;return t<1024?t+' B':(t/1024).toFixed(1)+' KB'}
+
+// ============================================================
+// 导入导出 / CSV / 报告
+// ============================================================
+function exportAllData(){
+    const data={
+        version:'2.0',
+        exportedAt:new Date().toISOString(),
+        faultModules:getModules(),
+        aiConfig:getAIConfig(),
+        aiChatHistory:getChatHistory(),
+        circuitFiles:getFiles(),
+        recentActivity:getActivities()
+    };
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`电路数据备份_${fmtDate(Date.now()).replace(/[: ]/g,'_')}.json`;a.click();
+    URL.revokeObjectURL(url);
+    showToast('数据已导出备份');
+    logActivity('导出数据备份');
+}
+
+function importAllData(file){
+    const reader=new FileReader();
+    reader.onload=function(e){
+        try{
+            const data=JSON.parse(e.target.result);
+            if(!data.version){showToast('无效的备份文件格式','error');return;}
+            if(data.faultModules)localStorage.setItem(LS_KEYS.MODULES,JSON.stringify(data.faultModules));
+            if(data.aiConfig)localStorage.setItem(LS_KEYS.AI_CFG,JSON.stringify(data.aiConfig));
+            if(data.aiChatHistory)localStorage.setItem(LS_KEYS.CHAT,JSON.stringify(data.aiChatHistory));
+            if(data.circuitFiles)localStorage.setItem(LS_KEYS.FILES,JSON.stringify(data.circuitFiles));
+            if(data.recentActivity)localStorage.setItem(LS_KEYS.ACTIVITY,JSON.stringify(data.recentActivity));
+            showToast('数据恢复成功！');
+            logActivity('从备份恢复数据');
+            refreshAll();
+        }catch(err){showToast('文件解析失败: '+err.message,'error')}
+    };
+    reader.readAsText(file);
+}
+
+function generateReport(moduleId){
+    const modules=getModules();
+    const m=modules.find(x=>x.id===moduleId);
+    if(!m)return;
+    const typeLabel=m.vehicleType==='nev'?'新能源汽车':'传统油车';
+    let report=`=== 车辆电路研究笔记 ===\n`;
+    report+=`模块名称: ${m.name}\n车型: ${typeLabel}\n电路名称: ${m.circuit||'未指定'}\n`;
+    if(m.faultDesc)report+=`功能描述: ${m.faultDesc}\n`;
+    report+=`创建时间: ${fmtDate(m.createdAt)}\n\n`;
+    if(m.pins&&m.pins.length){
+        let totalStatuses=0;
+        m.pins.forEach(p=>{if(p.statuses)totalStatuses+=p.statuses.length});
+        report+=`--- 测量数据 (${m.pins.length}个针脚, ${totalStatuses}条记录) ---\n`;
+        m.pins.forEach(p=>{
+            report+=`\n【针脚: ${p.name}】${p.description?' ('+p.description+')':''}\n`;
+            if(p.statuses&&p.statuses.length){
+                p.statuses.forEach((r,i)=>{
+                    report+=`  [${i+1}] 状态:${r.status}`;
+                    if(r.measurements&&r.measurements.length){
+                        r.measurements.forEach(mm=>{
+                            if(mm.pinPair&&(mm.type==='resistance'||mm.type==='canWaveform'||mm.type==='linWaveform')){
+                                report+=` ${mm.pinPair}间${mm.label}:${mm.value||'-'}`;
+                            }else{
+                                report+=` ${mm.label}:${mm.value||'-'}${mm.unit||''}`;
+                            }
+                        });
+                    }else if(r.voltage!==undefined||r.resistance!==undefined||r.can!==undefined||r.lin!==undefined){
+                        report+=` 电压:${r.voltage||'-'}V 电阻:${r.resistance||'-'}Ω CAN:${r.can||'-'} LIN:${r.lin||'-'}`;
+                    }
+                    if(r.abnormalVal||r.abnormalDesc)report+=` 异常值:${r.abnormalVal||'-'} 异常现象:${r.abnormalDesc||'-'}`;
+                    report+=`\n`;
+                });
+            }
+        });
+    }
+    report+=`\n--- 报告生成时间: ${fmtDate(Date.now())} ---\n`;
+    const blob=new Blob([report],{type:'text/plain;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`${m.name}_电路分析报告_${fmtDate(Date.now()).replace(/[: ]/g,'_')}.txt`;a.click();
+    URL.revokeObjectURL(url);
+    showToast('电路分析报告已导出');
+    logActivity('生成分析报告: '+m.name);
+}
+
+// ============================================================
+// 导航逻辑
+// ============================================================
+const sidebar=document.getElementById('sidebar'),menuToggle=document.getElementById('menuToggle'),navOverlay=document.getElementById('navOverlay');
+
+function switchView(view){
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelector(`[data-view="${view}"] .nav-item`).classList.add('active');
+    document.querySelectorAll('.view-content').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+view).classList.add('active');
+    if(window.innerWidth<1024){sidebar.classList.add('-translate-x-full');navOverlay.classList.add('hidden')}
+    if(view==='dashboard')updateDashboard();
+    if(view==='data-entry')renderModules();
+    if(view==='ai-assistant')renderChat();
+    if(view==='pdf-viewer')renderFileList();
+    if(view==='settings')loadSettings();
+}
+
+menuToggle.addEventListener('click',()=>{sidebar.classList.toggle('-translate-x-full');navOverlay.classList.toggle('hidden')});
+navOverlay.addEventListener('click',()=>{sidebar.classList.add('-translate-x-full');navOverlay.classList.add('hidden')});
+document.querySelectorAll('[data-view]').forEach(item=>{item.addEventListener('click',function(){switchView(this.dataset.view)})});
+
+// ============================================================
+// 导航栏状态更新
+// ============================================================
+function updateNavStatus(){
+    const cfg=getAIConfig();
+    const dot=document.getElementById('navApiDot');
+    const text=document.getElementById('navApiText');
+    const storage=document.getElementById('navStorageText');
+    const isConnected=cfg.key&&cfg.key.length>10;
+    dot.className=`w-2 h-2 rounded-full inline-block ${isConnected?'bg-success':'bg-gray-500'}`;
+    dot.style.boxShadow=isConnected?'0 0 6px rgba(16,185,129,0.6)':'none';
+    text.textContent=isConnected?`${cfg.model==='deepseek'?'DeepSeek':'豆包'} 已连接`:'AI 未配置';
+    text.className=`truncate ${isConnected?'text-success':'text-gray-400'}`;
+    const storageText=getStorageSize();
+    storage.textContent=storageText;
+    const numSize=parseFloat(storageText);
+    const isMB=storageText.includes('MB');
+    const isWarning=isMB&&numSize>4;
+    if(isWarning){
+        storage.className='truncate text-amber-400';
+        storage.title='存储空间即将用尽（>4MB），建议导出备份清理数据';
+    }else{
+        storage.className='truncate text-gray-500';
+        storage.title='';
+    }
+}
+
+// ============================================================
+// 系统概览
+// ============================================================
+function updateDashboard(){
+    const modules=getModules(),files=getFiles(),chats=getChatHistory();
+    document.getElementById('statModules').textContent=modules.length;
+    document.getElementById('statCircuits').textContent=files.length;
+    document.getElementById('statChats').textContent=chats.length;
+    let totalItems=modules.length,totalPins=0,totalStatuses=0;
+    modules.forEach(m=>{
+        if(m.pins){
+            totalPins+=m.pins.length;
+            m.pins.forEach(p=>{if(p.statuses)totalStatuses+=p.statuses.length});
+        }
+    });
+    totalItems+=totalPins+files.length+chats.length;
+    document.getElementById('statDtcs').textContent=totalItems;
+    document.getElementById('statTotalMeas').textContent=totalPins+'个针脚 / '+totalStatuses+'条记录';
+    const storage=getStorageSize();
+    document.getElementById('storageUsage').textContent=storage;
+    const su2=document.getElementById('storageUsage2');
+    if(su2)su2.textContent=storage;
+    const cfg=getAIConfig();
+    const aiStatusEl=document.getElementById('aiStatus');
+    aiStatusEl.textContent=cfg.key?'已连接 ('+cfg.model+')':'未配置';
+    aiStatusEl.className=cfg.key?'text-success':'text-gray-400';
+    const aiIcon=document.getElementById('aiStatusIcon');
+    if(aiIcon){aiIcon.className=cfg.key?'fas fa-check-circle text-success text-sm':'fas fa-times-circle text-gray-400 text-sm'}
+    const acts=getActivities();
+    document.getElementById('lastActivity').textContent=acts.length?fmtRelative(acts[0].timestamp):'无记录';
+    document.getElementById('activityCount').textContent='('+acts.length+')';
+    renderActivityTimeline();
+    renderRecentModules();
+    updateNavStatus();
+}
+
+function renderActivityTimeline(){
+    const container=document.getElementById('activityTimeline');
+    const acts=getActivities().slice(0,15);
+    if(!acts.length){container.innerHTML='<p class="text-gray-400 text-xs">暂无活动记录</p>';return;}
+    const icons={更新模块:'fa-microchip',删除模块:'fa-trash-alt','新建模块:':'fa-plus-circle','AI 对话:':'fa-robot','上传文件:':'fa-upload','分析报告:':'fa-file-alt','更新 AI':'fa-cog','备份':'fa-download','备份恢复':'fa-undo','上传电路':'fa-file-image'};
+    container.innerHTML=acts.map(a=>{
+        const icon=Object.entries(icons).find(([k])=>a.text.includes(k))||['','fa-circle'];
+        return `<div class="activity-item flex items-start gap-2.5 p-1.5 rounded"><div class="timeline-dot bg-primary/20 text-primary flex items-center justify-center"><i class="fas ${icon[1]} text-xs"></i></div><div class="flex-1 min-w-0"><p class="text-xs text-gray-700 truncate">${escHtml(a.text)}</p><p class="text-xs text-gray-400">${fmtRelative(a.timestamp)}</p></div></div>`;
+    }).join('');
+}
+
+function renderRecentModules(){
+    const container=document.getElementById('recentModules');
+    if(!container)return;
+    const modules=getModules().slice(-5).reverse();
+    if(!modules.length){container.innerHTML='<p class="text-gray-400 text-xs">暂无电路图</p>';return;}
+    container.innerHTML=modules.map(m=>{
+        let pinCount=m.pins?m.pins.length:0;
+        let statusCount=0;
+        if(m.pins)m.pins.forEach(p=>{if(p.statuses)statusCount+=p.statuses.length});
+        return `<div class="flex items-center gap-2.5 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="switchView('data-entry')">
+            <div class="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><i class="fas fa-microchip text-xs text-primary"></i></div>
+            <div class="flex-1 min-w-0"><p class="text-xs font-medium text-gray-700 truncate">${escHtml(m.name)}</p><p class="text-[10px] text-gray-400">${fmtRelative(m.createdAt)}${pinCount?' · '+pinCount+'个针脚':''}${statusCount?' · '+statusCount+'条':''}</p></div>
+        </div>`;
+    }).join('');
+}
+
+// ============================================================
+// 数据录入 - 模块管理
+// ============================================================
+let editingModuleId=null,viewingModuleId=null;
+
+document.getElementById('addModuleBtn').addEventListener('click',()=>openModuleModal(null));
+document.getElementById('moduleModalClose').addEventListener('click',closeModuleModal);
+document.getElementById('moduleModalCancel').addEventListener('click',closeModuleModal);
+document.getElementById('moduleModalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModuleModal()});
+document.getElementById('moduleModalSave').addEventListener('click',saveModule);
+document.getElementById('moduleSearchInput').addEventListener('input',renderModules);
+
+// 测量弹窗事件
+document.getElementById('measurementModalClose').addEventListener('click',closeMeasurementModal);
+document.getElementById('measurementCancel').addEventListener('click',closeMeasurementModal);
+document.getElementById('measurementModalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMeasurementModal()});
+document.getElementById('addPinBtn').addEventListener('click',()=>openPinEdit(null));
+
+// 针脚编辑事件
+document.getElementById('pinEditClose').addEventListener('click',()=>document.getElementById('pinEditModal').classList.add('hidden'));
+document.getElementById('pinEditCancel').addEventListener('click',()=>document.getElementById('pinEditModal').classList.add('hidden'));
+document.getElementById('pinEditModalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('pinEditModal').classList.add('hidden')});
+document.getElementById('pinEditSave').addEventListener('click',savePin);
+document.getElementById('pinEditDelete').addEventListener('click',deletePin);
+
+document.getElementById('exportAllBtn').addEventListener('click',exportAllData);
+document.getElementById('importDataBtn').addEventListener('click',()=>document.getElementById('importFileInput').click());
+document.getElementById('importFileInput').addEventListener('change',e=>{if(e.target.files.length){importAllData(e.target.files[0]);e.target.value=''}});
+document.getElementById('importDataSettingsBtn').addEventListener('click',()=>document.getElementById('importFileInput').click());
+
+function openModuleModal(id){
+    editingModuleId=id||null;
+    document.getElementById('moduleModalTitle').textContent=id?'编辑电路图':'新建电路图';
+    document.getElementById('moduleNameInput').value='';
+    document.getElementById('circuitNameInput').value='';
+    document.getElementById('faultDescInput').value='';
+    const refSelect=document.getElementById('moduleCircuitRef');
+    refSelect.innerHTML='<option value="">- 无关联 -</option>';
+    getFiles().forEach(f=>{
+        const opt=document.createElement('option');
+        opt.value=f.id;
+        opt.textContent=f.name;
+        refSelect.appendChild(opt);
+    });
+    // 重置车型选择
+    const fuelRadio=document.querySelector('input[name="vehicleType"][value="fuel"]');
+    const nevRadio=document.querySelector('input[name="vehicleType"][value="nev"]');
+    fuelRadio.checked=true;
+    nevRadio.checked=false;
+    fuelRadio.disabled=!!id;
+    nevRadio.disabled=!!id;
+    if(id){
+        const m=getModules().find(x=>x.id===id);
+        if(m){
+            document.getElementById('moduleNameInput').value=m.name;
+            document.getElementById('circuitNameInput').value=m.circuit||'';
+            document.getElementById('faultDescInput').value=m.faultDesc||'';
+            if(m.circuitRef)document.getElementById('moduleCircuitRef').value=m.circuitRef;
+            if(m.vehicleType==='nev'){nevRadio.checked=true;fuelRadio.checked=false}
+        }
+    }
+    updateVehicleTypeHint();
+    document.getElementById('moduleModal').classList.remove('hidden');
+}
+
+function closeModuleModal(){document.getElementById('moduleModal').classList.add('hidden');editingModuleId=null}
+
+function updateVehicleTypeHint(){
+    const val=document.querySelector('input[name="vehicleType"]:checked')?.value;
+    const hint=document.getElementById('vehicleTypeHint');
+    if(hint)hint.textContent=val==='nev'?'新能源汽车状态：下电（OK灯灭）/ 上电（OK灯亮）':'传统油车状态：OFF / ON / 启动';
+}
+
+document.querySelectorAll('input[name="vehicleType"]').forEach(r=>{
+    r.addEventListener('change',updateVehicleTypeHint);
+});
+
+function saveModule(){
+    const name=document.getElementById('moduleNameInput').value.trim();
+    if(!name){showToast('请输入模块名称','error');return;}
+    const vehicleType=document.querySelector('input[name="vehicleType"]:checked')?.value||'fuel';
+    const circuit=document.getElementById('circuitNameInput').value.trim();
+    const faultDesc=document.getElementById('faultDescInput').value.trim();
+    const circuitRef=document.getElementById('moduleCircuitRef').value;
+    let modules=getModules();
+    if(editingModuleId){
+        const i=modules.findIndex(x=>x.id===editingModuleId);
+        if(i!==-1){modules[i].name=name;modules[i].circuit=circuit;modules[i].faultDesc=faultDesc;modules[i].circuitRef=circuitRef}
+        showToast('模块已更新');logActivity('更新模块: '+name);
+    }else{
+        modules.push({id:genId(),name,vehicleType,circuit:circuit||'',faultDesc:faultDesc||'',circuitRef:circuitRef||'',createdAt:Date.now(),pins:[]});
+        showToast('模块已创建');logActivity('新建模块: '+name);
+    }
+    setModules(modules);closeModuleModal();renderModules();updateDashboard();
+}
+
+function renderModules(){
+    const modules=getModules(),container=document.getElementById('moduleList'),empty=document.getElementById('emptyModules');
+    const query=document.getElementById('moduleSearchInput').value.trim().toLowerCase();
+    let filtered=query?modules.filter(m=>m.name.toLowerCase().includes(query)||(m.circuit||'').toLowerCase().includes(query)||(m.faultDesc||'').toLowerCase().includes(query)):modules;
+    let totalPins=0,totalStatuses=0;
+    modules.forEach(m=>{
+        if(m.pins){
+            totalPins+=m.pins.length;
+            m.pins.forEach(p=>{if(p.statuses)totalStatuses+=p.statuses.length});
+        }
+    });
+    const sMod=document.getElementById('summaryModules');if(sMod)sMod.textContent=modules.length;
+    const sMeas=document.getElementById('summaryMeas');if(sMeas)sMeas.textContent=totalPins+'个针脚';
+    const sDtc=document.getElementById('summaryDtcs');if(sDtc)sDtc.textContent=totalStatuses+'条记录';
+    container.innerHTML='';
+    if(!filtered.length&&!query){empty.classList.remove('hidden');return}
+    empty.classList.add('hidden');
+    if(!filtered.length&&query){container.innerHTML=`<div class="text-center py-10 text-gray-400 text-sm"><i class="fas fa-search text-2xl mb-2 block"></i>未找到匹配的模块</div>`;return}
+    filtered.forEach(m=>{
+        const card=document.createElement('div');
+        card.className='bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition slide-enter';
+        const hasCircuitRef=m.circuitRef&&getFiles().some(f=>f.id===m.circuitRef)?'<i class="fas fa-paperclip text-success text-xs" title="已关联电路图"></i>':'';
+        const typeLabel=m.vehicleType==='nev'?'新能源':'油车';
+        const typeColor=m.vehicleType==='nev'?'bg-green-100 text-green-700':'bg-blue-100 text-blue-700';
+        let pinCount=0;
+        if(m.pins){m.pins.forEach(p=>{if(p.statuses)pinCount+=p.statuses.length})}
+        card.innerHTML=`
+            <div class="flex justify-between items-start">
+                <div class="flex-1 min-w-0 module-name-click cursor-pointer" data-id="${m.id}">
+                    <div class="flex items-center gap-2 flex-wrap"><h4 class="font-semibold text-gray-800">${escHtml(m.name)}</h4> <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${typeColor}">${typeLabel}</span> ${hasCircuitRef}</div>
+                    <p class="text-sm text-gray-400 mt-0.5">${escHtml(m.circuit||'未指定电路')}</p>
+                    <p class="text-xs text-gray-300 mt-1">${fmtDate(m.createdAt)}${m.pins?' | '+m.pins.length+'个针脚 | '+pinCount+'条记录':''}</p>
+                </div>
+                <div class="flex gap-1.5 ml-3 flex-shrink-0">
+                    <button class="edit-module text-primary hover:text-blue-700 p-1.5" data-id="${m.id}" title="编辑"><i class="fas fa-edit text-sm"></i></button>
+                    <button class="measure-module text-success hover:text-green-700 p-1.5" data-id="${m.id}" title="测量数据"><i class="fas fa-table text-sm"></i></button>
+                    <button class="delete-module text-danger hover:text-red-700 p-1.5" data-id="${m.id}" title="删除"><i class="fas fa-trash-alt text-sm"></i></button>
+                </div>
+            </div>`;
+        container.appendChild(card);
+    });
+    container.querySelectorAll('.edit-module').forEach(b=>b.addEventListener('click',()=>openModuleModal(b.dataset.id)));
+    container.querySelectorAll('.measure-module').forEach(b=>b.addEventListener('click',()=>openMeasurementModal(b.dataset.id)));
+    container.querySelectorAll('.delete-module').forEach(b=>b.addEventListener('click',()=>deleteModule(b.dataset.id)));
+    container.querySelectorAll('.module-name-click').forEach(el=>el.addEventListener('click',()=>openMeasurementModal(el.dataset.id)));
+}
+
+async function deleteModule(id){
+    const ok=await showConfirm('删除模块','确定要删除该电路图及其所有测量数据吗？');
+    if(!ok)return;
+    const m=getModules().find(x=>x.id===id);
+    setModules(getModules().filter(x=>x.id!==id));
+    renderModules();updateDashboard();
+    logActivity('删除模块: '+(m?m.name:''));
+    showToast('模块已删除');
+}
+
+// ============================================================
+// 测量数据 - 针脚卡片 UI
+// ============================================================
+let tempCircuitSelectorResolve=null;
+
+function showCircuitFileSelector(tr,rowId){
+    const files=getFiles();
+    if(!files.length){showToast('请先上传电路图文件','warning');return;}
+    let html='<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"><div class="bg-white rounded-xl p-5 max-w-md w-full mx-4 max-h-[70vh] overflow-y-auto"><h3 class="font-semibold text-gray-800 mb-3">选择关联电路图</h3><div class="space-y-2">';
+    files.forEach(f=>{
+        const isPDF=f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf');
+        const icon=isPDF?'fa-file-pdf text-danger':'fa-file-image text-blue-500';
+        html+=`<div class="file-option flex items-center gap-3 p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer" data-id="${f.id}"><i class="fas ${icon}"></i><div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-700 truncate">${escHtml(f.name)}</p><p class="text-xs text-gray-400">${(f.size/1024).toFixed(1)} KB</p></div><i class="fas fa-check-circle text-success hidden selected-icon"></i></div>`;
+    });
+    html+=`</div><div class="flex justify-end mt-4"><button class="cancel-select px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">取消关联</button></div></div></div>`;
+    const overlay=document.createElement('div');
+    overlay.innerHTML=html;
+    document.body.appendChild(overlay);
+    const container=overlay.firstElementChild;
+    container.querySelectorAll('.file-option').forEach(el=>{
+        el.addEventListener('click',()=>{
+            const fileId=el.dataset.id;
+            const f=getFiles().find(x=>x.id===fileId);
+            tr.dataset.circuitFileId=fileId;
+            const btn=tr.querySelector('.link-circuit i');
+            btn.className='fas fa-file-image text-success text-sm';
+            tr.style.cursor='pointer';
+            tr.addEventListener('dblclick',()=>{
+                const m=getModules().find(x=>x.id===viewingModuleId);
+                if(!m)return;
+                const rowData=m.pins?.find(p=>p.id===tr.dataset.pinId);
+                if(rowData)showRowCircuitPreview(rowData);
+            });
+            showToast('已关联: '+(f?f.name:''));
+            container.remove();
+        });
+    });
+    container.querySelector('.cancel-select').addEventListener('click',()=>{
+        tr.dataset.circuitFileId='';
+        const btn=tr.querySelector('.link-circuit i');
+        btn.className='fas fa-image text-sm';
+        container.remove();
+    });
+    container.addEventListener('click',e=>{if(e.target===container)container.remove()});
+}
+
+function showRowCircuitPreview(data){
+    if(!data.circuitFileId)return;
+    const f=getFiles().find(x=>x.id===data.circuitFileId);
+    if(!f){showToast('关联文件已不存在','error');return;}
+    const isPDF=f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf');
+    let infoHTML=`<div class="text-xs text-gray-500 mb-2">针脚: ${escHtml(data.name||'-')}</div>`;
+    if(data.abnormalVal||data.abnormalDesc){
+        infoHTML+=`<div class="text-xs text-amber-600 bg-amber-50 p-2 rounded mb-2">⚠ 异常数据 - 值: ${escHtml(data.abnormalVal||'-')} 现象: ${escHtml(data.abnormalDesc||'-')}</div>`;
+    }
+    const body=document.getElementById('pdfPreviewBody');
+    document.getElementById('pdfPreviewTitle').textContent=f.name+' (关联数据)';
+    document.getElementById('pdfPreviewModal').classList.remove('hidden');
+    document.getElementById('pdfPrevPage').style.display='none';document.getElementById('pdfNextPage').style.display='none';document.getElementById('pdfPageInfo').style.display='none';
+    if(isPDF){
+        body.innerHTML=infoHTML+'<div class="text-gray-400 py-8"><i class="fas fa-spinner fa-spin text-2xl"></i></div>';
+        renderPDFPages(f.data,body);
+    }else{
+        body.innerHTML=infoHTML+`<img src="${f.data}" class="max-w-full max-h-full object-contain" alt="${escHtml(f.name)}">`;
+    }
+}
+
+function openMeasurementModal(moduleId){
+    viewingModuleId=moduleId;
+    const m=getModules().find(x=>x.id===moduleId);
+    if(!m)return;
+    document.getElementById('measModuleName').textContent=m.name;
+    document.getElementById('measurementModal').classList.remove('hidden');
+    renderPins(m);
+}
+
+function closeMeasurementModal(){document.getElementById('measurementModal').classList.add('hidden');viewingModuleId=null}
+
+function renderPins(m){
+    const container=document.getElementById('pinListContainer');
+    const empty=document.getElementById('pinListEmpty');
+    // 清空容器但保留 empty 元素
+    container.querySelectorAll(':scope > .pin-card').forEach(el=>el.remove());
+    if(!m.pins||!m.pins.length){empty.classList.remove('hidden');return}
+    empty.classList.add('hidden');
+    m.pins.forEach(p=>{
+        const statusLabels=m.vehicleType==='nev'?['下电（OK灯灭）','上电（OK灯亮）']:['OFF','ON','启动'];
+        let statusesHtml='';
+        if(p.statuses&&p.statuses.length){
+            p.statuses.forEach(s=>{
+                const label=statusLabels.find(l=>l.startsWith(s.status)||s.status.startsWith(l))||s.status;
+                let measItems='';
+                if(s.measurements&&s.measurements.length){
+                    s.measurements.forEach(mm=>{
+                        let displayText=mm.value||'-';
+                        if(mm.pinPair&&(mm.type==='resistance'||mm.type==='canWaveform'||mm.type==='linWaveform')){
+                            displayText+=' ('+mm.pinPair+')';
+                        }
+                        measItems+=`<div><span class="text-gray-400">${mm.label}:</span> <span class="font-medium">${displayText}</span></div>`;
+                    });
+                }else if(s.voltage!==undefined||s.resistance!==undefined||s.can!==undefined||s.lin!==undefined){
+                    if(s.voltage)measItems+=`<div><span class="text-gray-400">电压(V):</span> <span class="font-medium">${s.voltage||'-'}</span></div>`;
+                    if(s.resistance)measItems+=`<div><span class="text-gray-400">电阻(Ω):</span> <span class="font-medium">${s.resistance||'-'}</span></div>`;
+                    if(s.can)measItems+=`<div><span class="text-gray-400">CAN:</span> <span class="font-medium">${s.can||'-'}</span></div>`;
+                    if(s.lin)measItems+=`<div><span class="text-gray-400">LIN:</span> <span class="font-medium">${s.lin||'-'}</span></div>`;
+                }
+                statusesHtml+=`
+                    <div class="bg-white border border-gray-100 rounded-lg p-3 mt-2">
+                        <div class="text-xs font-medium text-primary mb-2"><i class="fas fa-circle text-[6px]"></i> ${label}</div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                            ${measItems}
+                            ${s.abnormalVal?`<div class="col-span-2"><span class="text-danger">⚠ 异常值:${s.abnormalVal}</span></div>`:''}
+                            ${s.abnormalDesc?`<div class="col-span-2"><span class="text-orange-500">⚠ ${s.abnormalDesc}</span></div>`:''}
+                        </div>
+                    </div>`;
+            });
+        }
+        const card=document.createElement('div');
+        card.className='bg-gray-50 rounded-xl border border-gray-100 p-3 mb-2 pin-card';
+        card.innerHTML=`
+            <div class="flex justify-between items-center mb-1">
+                <div><span class="font-medium text-sm text-gray-800">${escHtml(p.name)}</span>${p.description?` <span class="text-xs text-gray-400">(${escHtml(p.description)})</span>`:''}</div>
+                <button class="edit-pin text-primary hover:text-blue-700 p-1" data-pin-id="${p.id}" title="编辑针脚"><i class="fas fa-edit text-sm"></i></button>
+            </div>
+            ${statusesHtml||'<div class="text-xs text-gray-400 py-2">未设置状态数据</div>'}
+        `;
+        container.insertBefore(card, empty);
+        card.querySelector('.edit-pin').addEventListener('click',()=>openPinEdit(p.id));
+    });
+}
+
+function openPinEdit(pinId){
+    const m=getModules().find(x=>x.id===viewingModuleId);
+    if(!m)return;
+    const pin=m.pins?m.pins.find(p=>p.id===pinId):null;
+    const typing=m.vehicleType||'fuel';
+    const statusOptions=typing==='nev'?['下电（OK灯灭）','上电（OK灯亮）']:['OFF','ON','启动'];
+    document.getElementById('pinEditTitle').textContent=pin?'编辑针脚':'添加针脚';
+    document.getElementById('pinNameInput').value=pin?pin.name:'';
+    document.getElementById('pinDescInput').value=pin?pin.description||'':'';
+    const cbGroup=document.getElementById('statusCheckboxGroup');
+    cbGroup.innerHTML=statusOptions.map(s=>{
+        const checked=pin?pin.statuses.some(st=>st.status===s):false;
+        return `<label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="status-cb w-4 h-4 text-primary" value="${s}" ${checked?'checked':''}><span class="text-sm">${s}</span></label>`;
+    }).join('');
+    updateStatusDataContainer(pin);
+    cbGroup.querySelectorAll('.status-cb').forEach(cb=>{
+        cb.addEventListener('change',()=>updateStatusDataContainer(pin));
+    });
+    const delBtn=document.getElementById('pinEditDelete');
+    if(pin){delBtn.classList.remove('hidden');delBtn.dataset.pinId=pinId}else delBtn.classList.add('hidden');
+    document.getElementById('pinEditModal').dataset.pinId=pinId||'';
+    document.getElementById('pinEditModal').classList.remove('hidden');
+}
+
+function updateStatusDataContainer(pin){
+    const container=document.getElementById('statusDataContainer');
+    container.innerHTML='';
+    document.querySelectorAll('.status-cb:checked').forEach(cb=>{
+        const status=cb.value;
+        const existing=pin?pin.statuses.find(s=>s.status===status):null;
+        const existingTypes=existing&&existing.measurementTypes?existing.measurementTypes:[];
+        const existingMeasurements=existing&&existing.measurements?existing.measurements:[];
+        const div=document.createElement('div');
+        div.className='border border-primary/20 bg-primary/5 rounded-lg p-3';
+        div.setAttribute('data-status',status);
+        div.innerHTML=`
+            <div class="text-xs font-medium text-primary mb-2">${status}</div>
+            <div class="text-[11px] text-gray-500 mb-1.5">测量类型：</div>
+            <div class="meas-type-group grid grid-cols-1 md:grid-cols-2 gap-1.5 mb-2">
+                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="meas-type-cb w-4 h-4 text-primary" value="voltage" data-status="${status}"><span class="text-xs">电压</span></label>
+                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="meas-type-cb w-4 h-4 text-primary" value="resistance" data-status="${status}"><span class="text-xs">电阻</span></label>
+                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="meas-type-cb w-4 h-4 text-primary" value="canWaveform" data-status="${status}"><span class="text-xs">CAN波形</span></label>
+                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="meas-type-cb w-4 h-4 text-primary" value="linWaveform" data-status="${status}"><span class="text-xs">LIN波形</span></label>
+            </div>
+            <div class="meas-fields space-y-2" data-status="${status}">
+                <div class="meas-field-voltage hidden" data-status="${status}">
+                    <label class="block text-[11px] text-gray-500">电压值</label>
+                    <input type="text" class="meas-value-input voltage w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" data-type="voltage" placeholder="如: 12.5V">
+                </div>
+                <div class="meas-field-resistance hidden" data-status="${status}">
+                    <label class="block text-[11px] text-gray-500">测量针脚对</label>
+                    <input type="text" class="meas-pinpair-input resistance-pinpair w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" data-type="resistance" placeholder="如: Pin1 - GND">
+                    <label class="block text-[11px] text-gray-500 mt-1">阻值</label>
+                    <input type="text" class="meas-value-input resistance w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" data-type="resistance" placeholder="如: 120Ω">
+                </div>
+                <div class="meas-field-canWaveform hidden" data-status="${status}">
+                    <label class="block text-[11px] text-gray-500">测量针脚对</label>
+                    <input type="text" class="meas-pinpair-input canWaveform-pinpair w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" data-type="canWaveform" placeholder="如: CAN_H - CAN_L">
+                    <label class="block text-[11px] text-gray-500 mt-1">波形描述</label>
+                    <input type="text" class="meas-value-input canWaveform w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" data-type="canWaveform" placeholder="如: 2.5V基准方波">
+                </div>
+                <div class="meas-field-linWaveform hidden" data-status="${status}">
+                    <label class="block text-[11px] text-gray-500">测量针脚对</label>
+                    <input type="text" class="meas-pinpair-input linWaveform-pinpair w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" data-type="linWaveform" placeholder="如: LIN - GND">
+                    <label class="block text-[11px] text-gray-500 mt-1">波形描述</label>
+                    <input type="text" class="meas-value-input linWaveform w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" data-type="linWaveform" placeholder="如: 12V基准方波">
+                </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-gray-200">
+                <div><label class="block text-[11px] text-gray-500">异常值</label><input type="text" class="status-input abnormalVal w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" placeholder="可选"></div>
+                <div class="mt-1"><label class="block text-[11px] text-gray-500">异常现象</label><input type="text" class="status-input abnormalDesc w-full border border-gray-200 rounded p-1.5 text-xs" data-status="${status}" placeholder="可选，如：电压偏低"></div>
+            </div>`;
+        container.appendChild(div);
+
+        if(existingTypes.length>0||existing){
+            if(existing){
+                div.querySelector('.status-input.abnormalVal').value=existing.abnormalVal||'';
+                div.querySelector('.status-input.abnormalDesc').value=existing.abnormalDesc||'';
+            }
+            if(existingTypes.length){
+                const cbs=div.querySelectorAll('.meas-type-cb');
+                cbs.forEach(cbb=>{
+                    if(existingTypes.includes(cbb.value))cbb.checked=true;
+                });
+                existingTypes.forEach(typ=>{
+                    const field=div.querySelector('.meas-field-'+typ);
+                    if(field)field.classList.remove('hidden');
+                    const valInput=div.querySelector('.meas-value-input[data-type="'+typ+'"]');
+                    const pinpInput=div.querySelector('.meas-pinpair-input[data-type="'+typ+'"]');
+                    const m=existingMeasurements.find(mm=>mm.type===typ);
+                    if(m){
+                        if(valInput)valInput.value=m.value||'';
+                        if(pinpInput)pinpInput.value=m.pinPair||'';
+                    }
+                });
+            }
+        }
+
+        div.querySelectorAll('.meas-type-cb').forEach(mcb=>{
+            mcb.addEventListener('change',function(){
+                const typ=this.value;
+                const field=div.querySelector('.meas-field-'+typ);
+                if(this.checked){
+                    field.classList.remove('hidden');
+                }else{
+                    field.classList.add('hidden');
+                    const vi=div.querySelector('.meas-value-input[data-type="'+typ+'"]');
+                    const pi=div.querySelector('.meas-pinpair-input[data-type="'+typ+'"]');
+                    if(vi)vi.value='';
+                    if(pi)pi.value='';
+                }
+            });
+        });
+    });
+}
+
+function savePin(){
+    const mId=viewingModuleId;
+    const pinId=document.getElementById('pinEditModal').dataset.pinId;
+    const name=document.getElementById('pinNameInput').value.trim();
+    if(!name){showToast('请输入针脚名称','error');return;}
+    const desc=document.getElementById('pinDescInput').value.trim();
+    const statuses=[];
+    const container=document.getElementById('statusDataContainer');
+    const statusCards=container.querySelectorAll('[data-status]');
+    statusCards.forEach(card=>{
+        const status=card.getAttribute('data-status');
+        const measurementTypes=[];
+        const measurements=[];
+        const typeLabels={voltage:'电压',resistance:'电阻',canWaveform:'CAN波形',linWaveform:'LIN波形'};
+        const typeUnits={voltage:'V',resistance:'Ω',canWaveform:'',linWaveform:''};
+        card.querySelectorAll('.meas-type-cb:checked').forEach(cb=>{
+            const typ=cb.value;
+            measurementTypes.push(typ);
+            const valInput=card.querySelector('.meas-value-input[data-type="'+typ+'"]');
+            const pinpInput=card.querySelector('.meas-pinpair-input[data-type="'+typ+'"]');
+            const entry={type:typ,label:typeLabels[typ]||typ,value:valInput?valInput.value.trim():'',unit:typeUnits[typ]||''};
+            if(typ==='resistance'||typ==='canWaveform'||typ==='linWaveform'){
+                entry.pinPair=pinpInput?pinpInput.value.trim():'';
+            }
+            measurements.push(entry);
+        });
+        const abnormalVal=card.querySelector('.status-input.abnormalVal').value||'';
+        const abnormalDesc=card.querySelector('.status-input.abnormalDesc').value||'';
+        statuses.push({status,measurementTypes,measurements,abnormalVal,abnormalDesc});
+    });
+    let modules=getModules();
+    const i=modules.findIndex(x=>x.id===mId);
+    if(i===-1){showToast('模块不存在','error');return;}
+    if(!modules[i].pins)modules[i].pins=[];
+    if(pinId){
+        const idx=modules[i].pins.findIndex(p=>p.id===pinId);
+        if(idx>=0){modules[i].pins[idx]={id:pinId,name,description:desc,statuses}}
+    }else{
+        modules[i].pins.push({id:genId(),name,description:desc,statuses});
+    }
+    setModules(modules);
+    document.getElementById('pinEditModal').classList.add('hidden');
+    renderPins(modules[i]);
+    updateDashboard();
+    showToast(pinId?'针脚已更新':'针脚已添加');
+    logActivity((pinId?'编辑针脚: ':'添加针脚: ')+name);
+}
+
+function deletePin(){
+    const pinId=document.getElementById('pinEditModal').dataset.pinId;
+    if(!pinId){showToast('请选择要删除的针脚','error');return;}
+    showConfirm('删除针脚','确定要删除该针脚及其所有状态数据吗？').then(ok=>{
+        if(!ok)return;
+        let modules=getModules();
+        const i=modules.findIndex(x=>x.id===viewingModuleId);
+        if(i>=0&&modules[i].pins){
+            modules[i].pins=modules[i].pins.filter(p=>p.id!==pinId);
+            setModules(modules);
+            document.getElementById('pinEditModal').classList.add('hidden');
+            renderPins(modules[i]);
+            updateDashboard();
+            showToast('针脚已删除');
+            logActivity('删除针脚');
+        }
+    });
+}
+
+// ============================================================
+// AI 归档
+// ============================================================
+document.getElementById('aiArchiveBtn').addEventListener('click',()=>{
+    if(viewingModuleId)aiArchiveData(viewingModuleId);
+});
+
+async function aiArchiveData(moduleId){
+    const cfg=getAIConfig();
+    if(!cfg.key){showToast('请先在设置中配置 AI API','warning');return;}
+    const modules=getModules();
+    const m=modules.find(x=>x.id===moduleId);
+    if(!m||!m.pins||!m.pins.length){showToast('无测量数据可归档','warning');return;}
+    let dataText='';
+    m.pins.forEach((p,i)=>{
+        dataText+=`【针脚 ${i+1}: ${p.name}】${p.description?' ('+p.description+')':''}\n`;
+        if(p.statuses&&p.statuses.length){
+            p.statuses.forEach(s=>{
+                dataText+=`  状态: ${s.status}\n`;
+                if(s.measurements&&s.measurements.length){
+                    s.measurements.forEach(mm=>{
+                        if(mm.pinPair&&(mm.type==='resistance'||mm.type==='canWaveform'||mm.type==='linWaveform')){
+                            dataText+=`  ${mm.pinPair}间${mm.label}: ${mm.value||'-'}\n`;
+                        }else{
+                            dataText+=`  ${mm.label}: ${mm.value||'-'}${mm.unit?mm.unit:''}\n`;
+                        }
+                    });
+                }else if(s.voltage!==undefined||s.resistance!==undefined||s.can!==undefined||s.lin!==undefined){
+                    dataText+=`  电压: ${s.voltage||'-'}V\n  电阻: ${s.resistance||'-'}Ω\n  CAN: ${s.can||'-'}\n  LIN: ${s.lin||'-'}\n`;
+                }
+                if(s.abnormalVal||s.abnormalDesc)dataText+=`  ⚠ 异常值: ${s.abnormalVal||'-'}\n  ⚠ 异常现象: ${s.abnormalDesc||'-'}\n`;
+                dataText+='\n';
+            });
+        }
+    });
+    const typeLabel=m.vehicleType==='nev'?'新能源汽车':'传统油车';
+    const prompt=`你是一位资深的汽车电路记录专家。请对以下电路模块的测量数据进行专业的归档分析，输出格式要求：
+
+## 模块信息
+- 模块名称：${m.name}
+- 车型：${typeLabel}
+- 电路名称：${m.circuit||'未指定'}
+- 功能描述：${m.faultDesc||'无'}
+
+## 各针脚数据摘要
+${dataText}
+
+## 归档要求
+请按以下格式归档：
+1. **正常值参考表**：列出各针脚在不同状态下的正常电压/电阻范围（表格形式）
+2. **异常标记**：如有异常数据，重点标记并分析可能原因
+3. **波形特征**：CAN/LIN 波形的正常特征描述
+4. **测量备注**：针对该模块的测量注意事项
+
+请用专业但易读的语言，便于后续快速查阅。`;
+    try{
+        showToast('AI 归档中...','info');
+        const resp=await fetch(cfg.url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify({model:cfg.model==='deepseek'?'deepseek-chat':'doubao-1-5-pro-256k',messages:[{role:'system',content:'你是一名资深的汽车电路记录专家，专注于帮助用户记录和分析车辆各电气模块的正常值参考数据。'},{role:'user',content:prompt}],stream:false,max_tokens:2000})});
+        if(!resp.ok)throw new Error('API 请求失败');
+        const data=await resp.json();
+        const reply=data.choices?.[0]?.message?.content;
+        if(reply){
+            const h=getChatHistory();
+            h.push({role:'assistant',content:`**📋 AI 归档报告 - ${m.name}**\n\n${reply}`,timestamp:Date.now()});
+            setChatHistory(h);
+            logActivity('AI 归档: '+m.name);
+            showToast('AI 归档完成');
+            setTimeout(()=>{
+                showToastWithAction('📋 AI 归档完成，点击查看 →',()=>{
+                    switchView('ai-assistant');
+                    setTimeout(()=>{
+                        const chat=document.getElementById('chatMessages');
+                        if(chat)chat.scrollTop=chat.scrollHeight;
+                    },300);
+                });
+            },1500);
+        }
+    }catch(err){showToast('AI 归档失败: '+err.message,'error');}
+}
+
+// ============================================================
+// AI 助手
+// ============================================================
+let isSending=false;
+
+document.getElementById('sendBtn').addEventListener('click',sendMessage);
+document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});
+document.getElementById('clearChatBtn').addEventListener('click',async()=>{
+    const ok=await showConfirm('清空对话','确定要清空所有对话记录吗？');
+    if(!ok)return;setChatHistory([]);renderChat();showToast('对话已清空');
+});
+
+function initPresetTemplates(){
+    const container=document.getElementById('presetTemplates');
+    container.innerHTML=PRESET_TEMPLATES.map(t=>`<span class="chip whitespace-nowrap" data-text="${escHtml(t.text)}"><i class="fas fa-bolt text-amber-400"></i>${escHtml(t.label)}</span>`).join('');
+    container.querySelectorAll('.chip').forEach(el=>{
+        el.addEventListener('click',()=>{
+            document.getElementById('chatInput').value=el.dataset.text;
+            document.getElementById('chatInput').focus();
+        });
+    });
+}
+
+function renderChat(){
+    const container=document.getElementById('chatMessages'),empty=document.getElementById('chatEmpty'),history=getChatHistory();
+    container.innerHTML='';
+    if(!history.length){empty.style.display='flex';return}
+    empty.style.display='none';
+    history.forEach(msg=>{
+        const div=document.createElement('div');
+        div.className=msg.role==='user'?'flex justify-end':'flex justify-start';
+        const content=msg.role==='user'?escHtml(msg.content):marked.parse(msg.content||'');
+        div.innerHTML=`<div class="${msg.role==='user'?'msg-user':'msg-ai'}"><div class="text-xs opacity-70 mb-1.5">${msg.role==='user'?'你':'AI 电路分析'} · ${fmtDate(msg.timestamp)}</div><div class="text-sm leading-relaxed ${msg.role==='user'?'':'prose prose-sm max-w-none'}">${msg.role==='user'?escHtml(msg.content):content}</div></div>`;
+        container.appendChild(div);
+    });
+    container.scrollTop=container.scrollHeight;
+    const cfg=getAIConfig();
+    const badge=document.getElementById('aiModelBadge');
+    if(badge){
+        const modelName=cfg.model==='deepseek'?'DeepSeek':'豆包';
+        badge.textContent=cfg.key?`${modelName} · 已连接`:'模型未配置';
+        badge.className=`text-[11px] px-2 py-0.5 rounded ${cfg.key?'bg-green-50 text-success':'bg-gray-100 text-gray-400'}`;
+    }
+    const stats=document.getElementById('aiChatStats');
+    if(stats)stats.textContent=history.length+` 条消息`;
+}
+
+async function sendMessage(){
+    if(isSending)return;
+    const input=document.getElementById('chatInput'),text=input.value.trim();
+    if(!text){showToast('请输入电路模块或针脚名称','warning');return}
+    input.value='';
+    const cfg=getAIConfig();
+    if(!cfg.key){showToast('请先在设置中配置 API Key','error');return}
+    const history=getChatHistory();
+    history.push({role:'user',content:text,timestamp:Date.now()});
+    setChatHistory(history);renderChat();
+    isSending=true;
+    const btn=document.getElementById('sendBtn');btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+    const loadingDiv=document.createElement('div');loadingDiv.className='flex justify-start';loadingDiv.innerHTML='<div class="msg-ai"><div class="text-xs opacity-70 mb-1">AI 电路分析</div><div class="text-sm"><i class="fas fa-spinner fa-spin"></i> 正在分析...</div></div>';
+    document.getElementById('chatMessages').appendChild(loadingDiv);document.getElementById('chatEmpty').style.display='none';
+    document.getElementById('chatMessages').scrollTop=document.getElementById('chatMessages').scrollHeight;
+    try{
+        const messages=[{role:'system',content:SYSTEM_PROMPT}];
+        const modules=getModules();
+        if(modules.length){
+            let ctx='\n\n以下是用户已保存的电路图测量数据，供你参考分析：\n';
+            const recent=modules.slice(-10);
+            recent.forEach(m=>{
+                ctx+=`\n【${m.name}】${m.circuit?' ('+m.circuit+')':''}`;
+                if(m.pins&&m.pins.length){
+                    m.pins.forEach(p=>{
+                        ctx+=`\n  针脚${p.name}${p.description?' ('+p.description+')':''}:`;
+                        if(p.statuses)p.statuses.forEach(s=>{
+                            ctx+=` ${s.status}:`;
+                            if(s.measurements&&s.measurements.length){
+                                s.measurements.forEach(mm=>{
+                                    if(mm.pinPair&&(mm.type==='resistance'||mm.type==='canWaveform'||mm.type==='linWaveform')){
+                                        ctx+=` ${mm.pinPair}间${mm.label}:${mm.value||'-'}`;
+                                    }else{
+                                        ctx+=` ${mm.label}:${mm.value||'-'}${mm.unit||''}`;
+                                    }
+                                });
+                            }else if(s.voltage!==undefined||s.resistance!==undefined||s.can!==undefined||s.lin!==undefined){
+                                ctx+=` ${s.voltage||'-'}V/${s.resistance||'-'}Ω`;
+                                if(s.can||s.lin)ctx+=` 波(${s.can||'-'}/${s.lin||'-'})`;
+                            }
+                            if(s.abnormalVal||s.abnormalDesc)ctx+=` ⚠异常:${s.abnormalVal||'-'}(${s.abnormalDesc||'-'})`;
+                        });
+                    });
+                }
+            });
+            ctx+='\n\n请根据这些数据回答用户的问题，如有异常数据请特别关注。';
+            const arch=getChatHistory().filter(h=>h.content.includes('AI 归档报告'));
+            if(arch.length){
+                ctx+='\n\n以下为已生成的 AI 归档报告摘要（可查阅完整报告）：\n';
+                arch.slice(-3).forEach(r=>{
+                    const firstLine=r.content.split('\n').find(l=>l.trim()&&!l.startsWith('**'));
+                    if(firstLine)ctx+=`- ${firstLine.substring(0,100)}...\n`;
+                });
+            }
+            messages.push({role:'system',content:ctx});
+        }
+        getChatHistory().slice(-20).forEach(h=>messages.push({role:h.role,content:h.content}));
+        let reply='';
+        const resp=await fetch(cfg.url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify({model:cfg.model==='deepseek'?'deepseek-chat':'doubao-1-5-pro-256k',messages,stream:false})});
+        if(!resp.ok){const t=await resp.text();let m='';try{m=JSON.parse(t).error?.message||t}catch(e){m=t}throw new Error('API 错误 ('+resp.status+'): '+m)}
+        const data=await resp.json();reply=data.choices?.[0]?.message?.content||'未获取到回复';
+        loadingDiv.remove();
+        const h=getChatHistory();h.push({role:'assistant',content:reply,timestamp:Date.now()});setChatHistory(h);
+        logActivity('AI 对话: '+(text.slice(0,20)+(text.length>20?'...':'')));
+        renderChat();
+    }catch(err){
+        loadingDiv.remove();showToast('请求失败: '+err.message,'error');
+        const h=getChatHistory();h.push({role:'assistant',content:'**请求失败**: '+err.message,timestamp:Date.now()});setChatHistory(h);renderChat();
+    }
+    isSending=false;btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i><span class="hidden sm:inline">发送</span>';
+}
+
+// ============================================================
+// PDF 电路图 - 上传 & 列表
+// ============================================================
+document.getElementById('uploadBtn').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('uploadZone').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change',handleFileUpload);
+document.getElementById('cameraCaptureBtn').addEventListener('click',()=>document.getElementById('cameraFileInput').click());
+document.getElementById('cameraCaptureZone').addEventListener('click',()=>document.getElementById('cameraFileInput').click());
+document.getElementById('cameraFileInput').addEventListener('change',handleFileUpload);
+
+function handleFileUpload(e){
+    const files=e.target.files;
+    if(!files.length)return;
+    let totalSize=0;
+    Array.from(files).forEach(f=>totalSize+=f.size);
+    if(totalSize>500*1024*1024){showToast('单次上传总大小不能超过 500MB，大文件建议分批上传','warning');return}
+    // 检查存储空间
+    const curSizeText=getStorageSize();
+    const curNum=parseFloat(curSizeText);
+    const isMB=curSizeText.includes('MB');
+    if(isMB&&curNum>4)showToast('存储空间即将不足（>4MB），建议导出备份后清理文件','warning');
+    Array.from(files).forEach(file=>{
+        let fileType=file.type;
+        if(!fileType||fileType==='application/octet-stream'){
+            const ext=file.name.split('.').pop().toLowerCase();
+            if(ext==='pdf')fileType='application/pdf';
+            else if(['png','jpg','jpeg'].includes(ext))fileType='image/'+ext;
+            else{showToast('不支持的文件格式: '+file.name,'error');return;}
+        }
+        const reader=new FileReader();
+        reader.onload=function(ev){
+            const f=getFiles();f.push({id:genId(),name:file.name,type:fileType,size:file.size,data:ev.target.result,createdAt:Date.now()});setFiles(f);renderFileList();updateDashboard();
+            logActivity('上传文件: '+file.name);
+            showToast('已上传: '+file.name);
+        };
+        reader.onerror=function(){showToast('读取文件失败: '+file.name,'error');};
+        reader.readAsDataURL(file);
+    });
+    e.target.value='';
+}
+
+function renderFileList(){
+    const container=document.getElementById('fileList'),empty=document.getElementById('emptyFiles'),files=getFiles();
+    container.innerHTML='';
+    let totalBytes=0;
+    files.forEach(f=>totalBytes+=f.size);
+    const badge=document.getElementById('fileCountBadge');
+    if(badge)badge.textContent='共 '+files.length+' 个文件';
+    const sizeEl=document.getElementById('fileTotalSize');
+    if(sizeEl)sizeEl.textContent=(totalBytes/(1024*1024)).toFixed(2)+' MB';
+    if(!files.length){empty.classList.remove('hidden');return}
+    empty.classList.add('hidden');
+    files.forEach(f=>{
+        const isPDF=f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf');
+        const card=document.createElement('div');
+        card.className='file-card bg-white rounded-xl shadow-sm p-3 border border-gray-100';
+        card.innerHTML=`
+            <div class="aspect-[4/3] bg-gray-50 rounded-lg mb-2 flex items-center justify-center overflow-hidden relative group">
+                ${isPDF?'<i class="fas fa-file-pdf text-4xl text-danger"></i>':'<img src="'+f.data+'" class="w-full h-full object-cover" alt="'+escHtml(f.name)+'">'}
+                <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition">
+                    <button class="delete-file bg-danger text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow" data-id="${f.id}" title="删除文件"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <p class="text-xs font-medium text-gray-700 truncate">${escHtml(f.name)}</p>
+            <p class="text-xs text-gray-400">${(f.size/1024).toFixed(1)} KB · ${fmtRelative(f.createdAt)}</p>`;
+        card.querySelector('.file-card div:first-child')?.addEventListener('click',()=>openPreview(f.id));
+        card.addEventListener('click',()=>openPreview(f.id));
+        container.appendChild(card);
+        card.querySelector('.delete-file')?.addEventListener('click',e=>{e.stopPropagation();deleteFile(f.id)});
+    });
+}
+
+async function deleteFile(id){
+    const ok=await showConfirm('删除文件','确定要删除该文件吗？');
+    if(!ok)return;
+    const f=getFiles().find(x=>x.id===id);
+    setFiles(getFiles().filter(x=>x.id!==id));
+    renderFileList();updateDashboard();
+    logActivity('删除文件: '+(f?f.name:''));
+    showToast('文件已删除');
+}
+
+// ============================================================
+// 悬浮窗预览 (PDF翻页 + 缩放 + 拖动 + 删除)
+// ============================================================
+let currentPreviewFile=null,previewZoom=1,previewPDFDoc=null,previewPageNum=1;
+let isDragging=false,dsX,dsY,doX,doY;
+
+function openPreview(fileId){
+    const f=getFiles().find(x=>x.id===fileId);
+    if(!f)return;
+    currentPreviewFile=f;previewZoom=1;previewPageNum=1;previewPDFDoc=null;
+    document.getElementById('pdfPreviewTitle').textContent=f.name;
+    document.getElementById('pdfPreviewModal').classList.remove('hidden');
+    document.getElementById('pdfPrevPage').style.display='none';document.getElementById('pdfNextPage').style.display='none';document.getElementById('pdfPageInfo').style.display='none';
+    const body=document.getElementById('pdfPreviewBody');body.innerHTML='<div class="text-gray-400 py-8"><i class="fas fa-spinner fa-spin text-2xl"></i></div>';
+    const isPDF=f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf');
+    if(isPDF)renderPDFPages(f.data,body);
+    else body.innerHTML=`<img src="${f.data}" class="max-w-full max-h-full object-contain" style="transform:scale(${previewZoom});transform-origin:center top;" alt="${escHtml(f.name)}">`;
+}
+
+async function renderPDFPages(dataUrl,container){
+    try{
+        pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdfData=atob(dataUrl.split(',')[1]).split('').map(c=>c.charCodeAt(0));
+        previewPDFDoc=await pdfjsLib.getDocument({data:pdfData}).promise;
+        document.getElementById('pdfPrevPage').style.display='inline-block';
+        document.getElementById('pdfNextPage').style.display='inline-block';
+        document.getElementById('pdfPageInfo').style.display='inline';
+        renderPDFPage(previewPageNum);
+    }catch(err){container.innerHTML='<div class="text-danger text-sm p-4">PDF 渲染失败: '+err.message+'</div>'}
+}
+
+async function renderPDFPage(num){
+    if(!previewPDFDoc)return;
+    if(num<1)num=1;if(num>previewPDFDoc.numPages)num=previewPDFDoc.numPages;
+    previewPageNum=num;
+    document.getElementById('pdfPageInfo').textContent=num+'/'+previewPDFDoc.numPages;
+    document.getElementById('pdfPrevPage').disabled=num<=1;
+    document.getElementById('pdfNextPage').disabled=num>=previewPDFDoc.numPages;
+    const page=await previewPDFDoc.getPage(num);
+    const scale=1.4;const viewport=page.getViewport({scale});
+    const container=document.getElementById('pdfPreviewBody');container.innerHTML='';
+    const canvas=document.createElement('canvas');
+    const ctx=canvas.getContext('2d');
+    canvas.width=viewport.width;canvas.height=viewport.height;
+    container.appendChild(canvas);
+    await page.render({canvasContext:ctx,viewport}).promise;
+    canvas.style.transform='scale('+previewZoom+')';
+    canvas.style.transformOrigin='center top';
+}
+
+document.getElementById('pdfPrevPage').addEventListener('click',()=>{if(previewPDFDoc&&previewPageNum>1)renderPDFPage(previewPageNum-1)});
+document.getElementById('pdfNextPage').addEventListener('click',()=>{if(previewPDFDoc&&previewPageNum<previewPDFDoc.numPages)renderPDFPage(previewPageNum+1)});
+document.getElementById('pdfZoomIn').addEventListener('click',()=>{previewZoom=Math.min(previewZoom+0.2,3);applyZoom()});
+document.getElementById('pdfZoomOut').addEventListener('click',()=>{previewZoom=Math.max(previewZoom-0.2,0.4);applyZoom()});
+document.getElementById('pdfZoomReset').addEventListener('click',()=>{previewZoom=1;applyZoom()});
+
+function applyZoom(){
+    const body=document.getElementById('pdfPreviewBody');
+    const img=body.querySelector('img'),canvas=body.querySelector('canvas');
+    if(img)img.style.transform='scale('+previewZoom+')';
+    if(canvas)canvas.style.transform='scale('+previewZoom+')';
+}
+
+document.getElementById('pdfDeleteFile').addEventListener('click',async()=>{
+    if(!currentPreviewFile)return;
+    const ok=await showConfirm('删除文件','确定要删除 "'+currentPreviewFile.name+'" 吗？');
+    if(!ok)return;
+    setFiles(getFiles().filter(x=>x.id!==currentPreviewFile.id));
+    closePreview();renderFileList();updateDashboard();
+    logActivity('删除文件: '+currentPreviewFile.name);
+    showToast('文件已删除');
+});
+
+document.getElementById('pdfPreviewClose').addEventListener('click',closePreview);
+document.getElementById('pdfPreviewOverlay').addEventListener('click',closePreview);
+function closePreview(){document.getElementById('pdfPreviewModal').classList.add('hidden');currentPreviewFile=null;previewPDFDoc=null}
+
+// 拖动
+const pc=document.getElementById('pdfPreviewContent'),ph=document.getElementById('pdfPreviewHeader');
+ph.addEventListener('mousedown',e=>{
+    if(e.target.closest('button'))return;
+    isDragging=true;const r=pc.getBoundingClientRect();
+    dsX=e.clientX;dsY=e.clientY;doX=r.left;doY=r.top;
+    pc.style.transition='none';e.preventDefault();
+});
+document.addEventListener('mousemove',e=>{if(!isDragging)return;pc.style.left=(doX+e.clientX-dsX)+'px';pc.style.top=(doY+e.clientY-dsY)+'px';pc.style.transform='none'});
+document.addEventListener('mouseup',()=>{isDragging=false;pc.style.transition=''});
+ph.addEventListener('touchstart',e=>{if(e.target.closest('button'))return;isDragging=true;const t=e.touches[0],r=pc.getBoundingClientRect();dsX=t.clientX;dsY=t.clientY;doX=r.left;doY=r.top;pc.style.transition='none'},{passive:true});
+document.addEventListener('touchmove',e=>{if(!isDragging)return;const t=e.touches[0];pc.style.left=(doX+t.clientX-dsX)+'px';pc.style.top=(doY+t.clientY-dsY)+'px';pc.style.transform='none'},{passive:true});
+document.addEventListener('touchend',()=>{isDragging=false;pc.style.transition=''},{passive:true});
+
+// ============================================================
+// 摄像头
+// ============================================================
+let mediaStream=null;
+document.getElementById('cameraBtn').addEventListener('click',openCamera);
+document.getElementById('cameraZone').addEventListener('click',openCamera);
+document.getElementById('cameraModalClose').addEventListener('click',closeCamera);
+document.getElementById('cameraCancelBtn').addEventListener('click',closeCamera);
+document.getElementById('cameraModalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCamera()});
+
+async function openCamera(){
+    try{
+        document.getElementById('cameraModal').classList.remove('hidden');
+        document.getElementById('capturePreview').classList.add('hidden');
+        document.getElementById('cameraPreview').classList.remove('hidden');
+        document.getElementById('captureBtn').classList.remove('hidden');
+        document.getElementById('recaptureBtn').classList.add('hidden');
+        document.getElementById('confirmPhotoBtn').classList.add('hidden');
+        const video=document.getElementById('cameraPreview');
+        try{
+            mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false});
+        }catch(err){
+            mediaStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+        }
+        video.srcObject=mediaStream;
+    }catch(err){showToast('无法打开摄像头: '+err.message,'error');document.getElementById('cameraModal').classList.add('hidden')}
+}
+
+function closeCamera(){
+    if(mediaStream){mediaStream.getTracks().forEach(t=>t.stop());mediaStream=null}
+    document.getElementById('cameraModal').classList.add('hidden');
+}
+
+document.getElementById('captureBtn').addEventListener('click',()=>{
+    const video=document.getElementById('cameraPreview'),canvas=document.getElementById('captureCanvas');
+    canvas.width=video.videoWidth||1280;canvas.height=video.videoHeight||720;
+    canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+    const dataUrl=canvas.toDataURL('image/jpeg',0.85);
+    document.getElementById('capturePreview').src=dataUrl;
+    document.getElementById('capturePreview').classList.remove('hidden');
+    document.getElementById('cameraPreview').classList.add('hidden');
+    document.getElementById('captureBtn').classList.add('hidden');
+    document.getElementById('recaptureBtn').classList.remove('hidden');
+    document.getElementById('confirmPhotoBtn').classList.remove('hidden');
+});
+document.getElementById('recaptureBtn').addEventListener('click',()=>{
+    document.getElementById('capturePreview').classList.add('hidden');
+    document.getElementById('cameraPreview').classList.remove('hidden');
+    document.getElementById('captureBtn').classList.remove('hidden');
+    document.getElementById('recaptureBtn').classList.add('hidden');
+    document.getElementById('confirmPhotoBtn').classList.add('hidden');
+});
+document.getElementById('confirmPhotoBtn').addEventListener('click',()=>{
+    const dataUrl=document.getElementById('capturePreview').src;
+    if(!dataUrl||dataUrl==='')return;
+    const files=getFiles();
+    files.push({id:genId(),name:'拍照_'+fmtDate(Date.now()).replace(/[: ]/g,'_')+'.jpg',type:'image/jpeg',size:Math.round(dataUrl.length*0.75),data:dataUrl,createdAt:Date.now()});
+    setFiles(files);renderFileList();updateDashboard();closeCamera();
+    logActivity('拍照上传');
+    showToast('照片已保存');
+});
+
+// ============================================================
+// 设置
+// ============================================================
+function loadSettings(){
+    const cfg=getAIConfig();
+    document.getElementById('aiModel').value=cfg.model;
+    document.getElementById('apiUrl').value=cfg.url;
+    document.getElementById('apiKey').value=cfg.key;
+}
+
+document.getElementById('aiModel').addEventListener('change',()=>{
+    const cfg=getAIConfig();cfg.model=document.getElementById('aiModel').value;
+    if(cfg.model==='deepseek'&&!cfg.url.includes('deepseek'))cfg.url='https://api.deepseek.com/v1/chat/completions';
+    if(cfg.model==='doubao'&&!cfg.url.includes('volces'))cfg.url='https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+    document.getElementById('apiUrl').value=cfg.url;setAIConfig(cfg);showToast('模型已切换');
+});
+document.getElementById('apiUrl').addEventListener('change',()=>{const cfg=getAIConfig();cfg.url=document.getElementById('apiUrl').value;setAIConfig(cfg)});
+document.getElementById('apiKey').addEventListener('change',()=>{const cfg=getAIConfig();cfg.key=document.getElementById('apiKey').value;setAIConfig(cfg)});
+document.getElementById('toggleKeyBtn').addEventListener('click',()=>{
+    const i=document.getElementById('apiKey');
+    const icon=document.querySelector('#toggleKeyBtn i');
+    if(i.type==='password'){i.type='text';icon.className='fas fa-eye-slash'}
+    else{i.type='password';icon.className='fas fa-eye'}
+});
+
+document.getElementById('testApiBtn').addEventListener('click',testApiConnection);
+async function testApiConnection(){
+    const cfg=getAIConfig();
+    if(!cfg.key){showToast('请先输入 API Key','error');return}
+    if(!cfg.url){showToast('请先输入 API 地址','error');return}
+    const btn=document.getElementById('testApiBtn'),result=document.getElementById('testResult');
+    btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> 测试中...';result.textContent='';result.className='text-sm ml-2';
+    try{
+        const resp=await fetch(cfg.url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify({model:cfg.model==='deepseek'?'deepseek-chat':'doubao-1-5-pro-256k',messages:[{role:'user',content:'Hello'}],max_tokens:5})});
+        if(resp.ok){result.textContent='✓ 连接成功';result.className='text-sm ml-2 text-success';showToast('API 连接测试通过')}
+        else{const t=await resp.text();let m='';try{m=JSON.parse(t).error?.message||t}catch(e){m=t}result.textContent='✗ '+m;result.className='text-sm ml-2 text-danger'}
+    }catch(err){result.textContent='✗ 连接失败: '+err.message;result.className='text-sm ml-2 text-danger'}
+    btn.disabled=false;btn.innerHTML='<i class="fas fa-plug"></i>测试连接';
+}
+
+document.getElementById('clearDataBtn').addEventListener('click',async()=>{
+    const ok=await showConfirm('清空数据','确定要清空所有本地数据吗？此操作不可恢复！');
+    if(!ok)return;
+    localStorage.clear();showToast('所有数据已清空');refreshAll();
+});
+
+document.getElementById('exportDataBtn').addEventListener('click',exportAllData);
+document.getElementById('exportAllBtn').addEventListener('click',exportAllData);
+
+// ============================================================
+// 语音输入
+// ============================================================
+let recognition=null;
+let isRecording=false;
+let pressTimer=null;
+let silenceTimer=null;
+const SPEECH_TIMEOUT=10000;
+
+function initSpeechRecognition(){
+    const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SpeechRecognition){
+        const micBtn=document.getElementById('micBtn');
+        if(micBtn)micBtn.style.display='none';
+        return;
+    }
+    recognition=new SpeechRecognition();
+    recognition.lang='zh-CN';
+    recognition.interimResults=false;
+    recognition.maxAlternatives=1;
+    recognition.onresult=function(event){
+        const transcript=event.results[0][0].transcript;
+        const input=document.getElementById('chatInput');
+        if(input){
+            input.value+=transcript;
+            input.focus();
+        }
+        resetSilenceTimer();
+    };
+    recognition.onerror=function(event){
+        console.warn('Speech recognition error:',event.error);
+        if(event.error==='no-speech'){showToast('未检测到语音，请重试','warning')}
+        else if(event.error==='aborted'){}
+        else{showToast('语音识别错误: '+event.error,'error')}
+        stopRecording();
+    };
+    recognition.onend=function(){
+        stopRecording();
+    };
+    setupMicButton();
+}
+
+function resetSilenceTimer(){
+    if(silenceTimer)clearTimeout(silenceTimer);
+    silenceTimer=setTimeout(()=>{
+        if(isRecording){
+            stopRecording();
+            showToast('录音超时，未检测到语音','warning');
+        }
+    },SPEECH_TIMEOUT);
+}
+
+function setupMicButton(){
+    const micBtn=document.getElementById('micBtn');
+    if(!micBtn)return;
+
+    function startPress(e){
+        if(isRecording)return;
+        e.preventDefault();
+        if(e.type==='touchstart'){
+            document.body.style.webkitUserSelect='none';
+            document.body.style.userSelect='none';
+        }
+        pressTimer=setTimeout(()=>{
+            startRecording();
+        },300);
+    }
+
+    function endPress(e){
+        if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
+        if(e.type==='touchend'){
+            document.body.style.webkitUserSelect='';
+            document.body.style.userSelect='';
+        }
+        if(isRecording){
+            if(Date.now()-recordingStartTime<1500){
+                return;
+            }
+            stopRecording();
+        }
+    }
+
+    micBtn.addEventListener('mousedown',startPress);
+    micBtn.addEventListener('mouseup',endPress);
+    micBtn.addEventListener('mouseleave',endPress);
+    micBtn.addEventListener('touchstart',startPress,{passive:false});
+    micBtn.addEventListener('touchend',endPress);
+    micBtn.addEventListener('touchcancel',endPress);
+    micBtn.addEventListener('contextmenu',e=>e.preventDefault());
+}
+
+let recordingStartTime=0;
+function startRecording(){
+    if(!recognition||isRecording)return;
+    isRecording=true;
+    recordingStartTime=Date.now();
+    const micBtn=document.getElementById('micBtn');
+    if(micBtn){micBtn.classList.add('recording');micBtn.querySelector('i').className='fas fa-microphone-alt text-lg'}
+    try{
+        recognition.start();
+        resetSilenceTimer();
+    }catch(err){
+        stopRecording();
+    }
+}
+
+function stopRecording(){
+    isRecording=false;
+    recordingStartTime=0;
+    if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
+    if(silenceTimer){clearTimeout(silenceTimer);silenceTimer=null}
+    const micBtn=document.getElementById('micBtn');
+    if(micBtn){micBtn.classList.remove('recording');micBtn.querySelector('i').className='fas fa-microphone text-lg'}
+    try{recognition.stop()}catch(e){}
+    document.body.style.webkitUserSelect='';
+    document.body.style.userSelect='';
+}
+
+// ============================================================
+// 全局刷新
+// ============================================================
+function refreshAll(){
+    loadSettings();updateDashboard();renderModules();renderChat();renderFileList();
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded',()=>{
+    loadSettings();updateDashboard();renderModules();renderChat();renderFileList();initPresetTemplates();initSpeechRecognition();
+    // 移动端键盘处理：输入框焦点时滚动到可视区域
+    document.getElementById('chatInput').addEventListener('focus',()=>{
+        setTimeout(()=>{
+            document.getElementById('chatMessages').scrollTop=document.getElementById('chatMessages').scrollHeight;
+            document.getElementById('chatInput').scrollIntoView({behavior:'smooth',block:'center'});
+        },300);
+    });
+    document.querySelectorAll('.modal-content input, .modal-content textarea, .modal-content select').forEach(el=>{
+        el.addEventListener('focus',function(){
+            setTimeout(()=>this.scrollIntoView({behavior:'smooth',block:'center'}),300);
+        });
+    });
+    // AI 快速匹配：输入时检测相关模块
+    document.getElementById('chatInput').addEventListener('input',function(){
+        const text=this.value.trim().toLowerCase();
+        const container=document.getElementById('quickMatchModules');
+        if(!container)return;
+        if(text.length<2){container.classList.add('hidden');return;}
+        const modules=getModules();
+        const matched=modules.filter(m=>
+            m.name.toLowerCase().includes(text)||
+            (m.circuit||'').toLowerCase().includes(text)||
+            (m.faultDesc||'').toLowerCase().includes(text)
+        );
+        if(matched.length===0){container.classList.add('hidden');return;}
+        container.classList.remove('hidden');
+        container.innerHTML=matched.slice(0,3).map(m=>
+            `<span class="chip text-xs cursor-pointer" data-module-id="${m.id}">
+                <i class="fas fa-microchip text-xs text-primary"></i>${escHtml(m.name)}
+            </span>`
+        ).join('');
+        container.querySelectorAll('.chip').forEach(el=>{
+            el.addEventListener('click',function(){
+                const id=this.dataset.moduleId;
+                const m=matched.find(x=>x.id===id);
+                if(m){
+                    let val=`请分析${m.name}电路`;
+                    if(m.circuit)val+=`（${m.circuit}）`;
+                    if(m.faultDesc)val+=`，功能：${m.faultDesc}`;
+                    val+=`，各针脚在不同状态下的正常数据范围。`;
+                    document.getElementById('chatInput').value=val;
+                    document.getElementById('chatInput').focus();
+                }
+                container.classList.add('hidden');
+            });
+        });
+    });
+});
+</script>
+</body>
+</html>
